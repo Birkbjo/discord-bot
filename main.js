@@ -48,8 +48,6 @@ client.on('message', msg => {
 client.login(config.token).catch(err =>
     console.log("Failed to log in: " + err)
 )
-console.log("logged in")
-
 
 function moveCouncil() {
 
