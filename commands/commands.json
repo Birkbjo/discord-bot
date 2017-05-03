@@ -5,5 +5,8 @@
   },
   "!ping": {
     "file": "pong.js"
+  },
+  "!count": {
+    "file": "count.js"
   }
 }
