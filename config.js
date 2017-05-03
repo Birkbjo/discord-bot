@@ -1,7 +1,7 @@
 const secret = require('./secret.js');
 
 const config = {
-    token: secret.token,
+    token: process.env.BOT_TOKEN || secret.token,
 };
 
 module.exports = config;
