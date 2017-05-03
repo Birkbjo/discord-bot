@@ -1,0 +1,9 @@
+{
+  "!move": {
+    "file": "move.js",
+    "permission": 2
+  },
+  "!ping": {
+    "file": "pong.js"
+  }
+}
