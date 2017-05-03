@@ -1,6 +1,8 @@
 module.exports = (msg, guild, command) => {
+
   const roomName = command.args[0];
-    const answerChannel = guild.channels.find(chan => chan.id === msg.channel.id);
+  const answerChannel = guild.channels.find(chan => chan.id === msg.channel.id);
+
   if(roomName){
       const countChannel = guild.channels.find(chan => chan.type === 'voice' && chan.name.toLowerCase() === roomName.toLowerCase());
       if(!countChannel){
@@ -13,6 +15,7 @@ module.exports = (msg, guild, command) => {
           `have ${count} ` +
           `connected client${count !== 1 ? "s" : ""}`
       );
+
   }else{
       const countChannels = guild.channels.filter(chan => chan.type === 'voice');
       let totalCount = 0;
