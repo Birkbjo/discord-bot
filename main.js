@@ -25,7 +25,7 @@ client.on('message', msg => {
     const command = parseCommand(msgBody);
     console.log(msg.content);
     if(commands[command.cmd]){
-        commands[command.cmd].run(msg, AOD, command);
+        commands[command.cmd].run(msg, main_guild, command);
     }
 });
 
@@ -33,12 +33,14 @@ client.login(config.token).catch(err =>
     console.log("Failed to log in: " + err)
 );
 
+
 function parseCommand(input) {
-    const argv = input.split(/ +(?=(?:(?:[^"]*"){2})*[^"]*$)/g);
+    let argv = input.split(/ +(?=(?:(?:[^"]*"){2})*[^"]*$)/g);
+    argv = argv.map(elem => elem.replace(/^"(.*)"$/, '$1'));
     const command = argv[0];
     const args = argv.slice(1,input.length);
     return {
         cmd : command,
         args: args
     }
-}
+} 

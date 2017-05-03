@@ -16,7 +16,7 @@ module.exports = (msg, guild, command) => {
         }
         members = role.members;
     }
-    const channel = guild.channels.filter(chan => chan.type === 'voice' && chan.name.toLowerCase() === roomTo.toLowerCase());
+    const channel = guild.channels.find(chan => chan.type === 'voice' && chan.name.toLowerCase() === roomTo.toLowerCase());
     if(!channel){
         msg.reply(` ${roomTo} is not a valid room`);
         return;
@@ -30,6 +30,6 @@ module.exports = (msg, guild, command) => {
             }).catch(member => {
                 console.log("Failed to move user " + member.user.username)
             });
-
+        return true;
     });
 };
