@@ -14,5 +14,8 @@
   },
   "!wclogs": {
     "file": "warcraftlogs.js"
+  },
+  "!help": {
+    "file": "help.js"
   }
 }
