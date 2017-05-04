@@ -12,7 +12,6 @@ wclTypes = {
 module.exports = (msg, guild, command) => {
     const args = command.args;
     const modifiers = command.specials;
-    console.log(modifiers)
     const guildName = args[0];
     const server = args[1];
     const region = args[2] || "EU";
@@ -26,7 +25,6 @@ module.exports = (msg, guild, command) => {
         }
         const lastLog = data[data.length-1];
         let type = "";
-        console.log(modifiers)
         if(modifiers.length > 0) {
             const modiferType = modifiers.find(elem => !!wclTypes[elem] )
             type = wclTypes[modiferType];
