@@ -26,8 +26,8 @@ module.exports = (msg, guild, command) => {
         const lastLog = data[data.length-1];
         let type = "";
         if(modifiers.length > 0) {
-            const modiferType = modifiers.find(elem => !!wclTypes[elem] )
-            type = wclTypes[modiferType];
+            const modifierType = modifiers.find(elem => !!wclTypes[elem] )
+            type = wclTypes[modifierType];
 
         }
 
