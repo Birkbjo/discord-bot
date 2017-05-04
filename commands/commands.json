@@ -8,5 +8,8 @@
   },
   "!count": {
     "file": "count.js"
+  },
+  "!armory": {
+    "file": "armory.js"
   }
 }
