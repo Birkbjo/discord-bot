@@ -10,7 +10,8 @@ const BOT_ID = 22;
 let main_guild;
 const alias = {
     mvC : '!move "loot council" "loot council"',
-    mvB : '!move "loot council" "raid"'
+    mvB : '!move "loot council" "raid"',
+    '!logs': '!wclogs "The Art of Dying" "Bladefist" --dmg',
 };
 //****
 
@@ -74,7 +75,7 @@ function parseCommand(input) {
     return {
         cmd : command,
         args: args,
-        specials: specials
+        specials: specials.map(elem => elem.substr(2,elem.length))
     }
 }
 

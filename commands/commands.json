@@ -11,5 +11,8 @@
   },
   "!armory": {
     "file": "armory.js"
+  },
+  "!wclogs": {
+    "file": "warcraftlogs.js"
   }
 }

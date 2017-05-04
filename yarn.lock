@@ -2449,7 +2449,7 @@ repeating@^2.0.0:
   dependencies:
     is-finite "^1.0.0"
 
-request@^2.81.0:
+request@^2.75.0, request@^2.81.0:
   version "2.81.0"
   resolved "https://registry.yarnpkg.com/request/-/request-2.81.0.tgz#c6928946a0e06c5f8d6f8a9333469ffda46298a0"
   dependencies:
@@ -2928,6 +2928,10 @@ wbuf@^1.1.0, wbuf@^1.4.0:
   dependencies:
     minimalistic-assert "^1.0.0"
 
+weasel.js@^1.0.0:
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/weasel.js/-/weasel.js-1.0.0.tgz#73552a3952b24b05addeae9f056444ebd6b63bff"
+
 webpack-dev-middleware@^1.10.2:
   version "1.10.2"
   resolved "https://registry.yarnpkg.com/webpack-dev-middleware/-/webpack-dev-middleware-1.10.2.tgz#2e252ce1dfb020dbda1ccb37df26f30ab014dbd1"
@@ -3019,6 +3023,12 @@ window-size@0.1.0:
 wordwrap@0.0.2:
   version "0.0.2"
   resolved "https://registry.yarnpkg.com/wordwrap/-/wordwrap-0.0.2.tgz#b79669bb42ecb409f83d583cad52ca17eaa1643f"
+
+wow-armory@^0.10.10:
+  version "0.10.10"
+  resolved "https://registry.yarnpkg.com/wow-armory/-/wow-armory-0.10.10.tgz#dc71bca1e83f69a440ac5c0bc738f7c8ad3e6244"
+  dependencies:
+    request "^2.75.0"
 
 wrap-ansi@^2.0.0:
   version "2.1.0"
