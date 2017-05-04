@@ -6,6 +6,7 @@ module.exports = (msg, guild, command) => {
     const roomTo = command.args[1];
 
     let members;
+    const requestMember = msg.member;
     if(roleStr.toLowerCase() === "all"){
         members = guild.members;
     }else{
@@ -16,9 +17,14 @@ module.exports = (msg, guild, command) => {
         }
         members = role.members;
     }
+
     const channel = guild.channels.find(chan => chan.type === 'voice' && chan.name.toLowerCase() === roomTo.toLowerCase());
     if(!channel){
         msg.reply(` ${roomTo} is not a valid room`);
+        return;
+    }
+    if(requestMember && !channel.permissionsFor(requestMember).has('MOVE_MEMBERS')) {
+        msg.reply('does not have permission to do that.');
         return;
     }
     members = members.filter(member => member.voiceChannel !== undefined && member.voiceChannel.name.toLowerCase() !== roomTo.toLowerCase());
