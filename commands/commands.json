@@ -17,5 +17,8 @@
   },
   "!help": {
     "file": "help.js"
+  },
+  "!sim": {
+    "file": "sim.js"
   }
 }
