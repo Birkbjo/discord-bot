@@ -18,7 +18,7 @@ const alias = {
 client.on('ready', () => {
     console.log(`Logged in as ${client.user.username}!`);
     main_guild = client.guilds.find('name', GUILD_NAME);
-    beginServerLogging();
+    //beginServerLogging();
 });
 
 client.on('message', msg => {

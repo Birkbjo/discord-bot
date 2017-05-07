@@ -37,21 +37,29 @@ function startSim(armObj, msg, guild, type) {
     armory.character({"name": armObj.name, "fields": ["items", "talents"]}, (err, data) => {
         if (err) {
             msg.reply(`Failed to retrieve character ${armObj.name}. Simulation aborted.\n${err}`);
+            return;
         }
         const json = createSimJSON(data, armObj, type)
+        sendSimRequest(json).then(body => {
+            msg.reply(`your simulation for ${json.baseActorName} has started, you will be notified when it's done!`)
+            startPoll(body).then(data => {
+                console.log(data);
+                simCompleted(msg, data.htmlReportURL, data.body.body, json);
+            }).catch(err => {
+                console.log(err);
+                msg.reply(`An error occured for your simulation of ${json.baseActorName}:\n${err}`)
+            });
+        }).catch(err => {
+            msg.reply(`Failed to start simulation for ${json.baseActorName}.\n${err}`);
+        })
+    })
+}
 
-        sendSim(json, (body, url, err) => {
-            console.log("SUm url " + url)
-            body = JSON.parse(body);
-            let str = "";
-            str += `Full report: ${url}\n`
-            str += parseSimResults(body);
-            //  getReportJSON()
-            msg.reply("your simulation is done!\n" + str)
-            return;
-        });
-        msg.reply("your simulation has started, you will be notified when it's done!")
-    });
+function simCompleted(msg, htmlReportUrl, resultSimData, requestJson) {
+    let str = "";
+    str += `Full report: ${htmlReportUrl}\n`
+    str += parseSimResults(resultSimData);
+    msg.reply("your simulation for " + requestJson.baseActorName + " is done!\n" + str)
 }
 
 function parseSimResults(jsonResult) {
@@ -62,13 +70,13 @@ function parseSimResults(jsonResult) {
     let scfString = "";
     if (scaleFactors) {
         const sortedFactors = Object.keys(scaleFactors)
-            .sort((a,b) => scaleFactors[b] - scaleFactors[a]);
-        console.log(sortedFactors)
+            .sort((a, b) => scaleFactors[b] - scaleFactors[a]);
+
         for (let i = 0; i < sortedFactors.length; i++) {
             const stat = sortedFactors[i];
-            const factor = Math.round(scaleFactors[stat] * 100) /100;
+            const factor = Math.round(scaleFactors[stat] * 100) / 100;
             scfString += stat + ": " + factor
-               + (i != sortedFactors.length-1 ? " > " : "")
+                + (i != sortedFactors.length - 1 ? " > " : "")
         }
     }
     // let pawnString =
@@ -103,116 +111,106 @@ function createSimJSON(arm, armObj, type) {
 
 }
 
-function sendSim(json, doneCB) {
+function sendSimRequest(json, doneCB) {
     const url = "https://raidbots.com/sim";
     const j = request.jar();
     const cookie = request.cookie("raidsid=s%3ACcTAy05q-w4Pt3FFR3P3TYf-geSfCUGi.as4QQuhDNQWFdaF3BHOT1piFMr80HyY5kY8MNl%2F56Ts")
     j.setCookie(cookie, url);
 
-
-    request.post({url, jar: j, body: json, json: true}, (err, resp, body) => {
-        console.log(err)
-        if (err) {
-            console.log(err)
-        } else {
-
-        }
-        console.log(body);
-        startPoll(body, doneCB);
-
+    return new Promise((resolve, reject) => {
+        request.post({url, jar: j, body: json, json: true}, (err, resp, body) => {
+            if (err) {
+                console.log(err)
+                reject(err);
+            } else {
+                console.log("Started sim for " + json.baseActorName)
+                resolve(body);
+            }
+        })
     })
 }
 
 
-function startPoll(info, cb) {
+function startPoll(info) {
     //refactor this mess please
     const maxPolling = 1000 * 60 * 5; //5min
     const start = new Date();
-    const poll = () => {
-        pollStatus(info, body => {
-            body = JSON.parse(body);
-            console.log(body.queue);
-            //  console.log(job);
-            if (body.job.state == "complete") {
-                const pollInt = () => {
-                    pollReport(info, (url, body, resp) => {
-                        if (resp && resp.statusCode == 200) {
-                            const htmlReportURL = url;
-                            getReportJSON(info, (url, body, resp) => {
-                                cb(body, htmlReportURL);
-                            })
-                        } else if (resp.statusCode != 404) { //something bad happened
-                            console.log(resp);
-                            cb(null, url, resp)
-                        } else {
-                            setTimeout(pollInt, 2000);
-                        }
-                    });
+
+    return new Promise((resolve, reject) => {
+        pollStatus(info).then(body => {
+            console.log("Result: " + body);
+            requestReportHTML(info).then((data) => {
+                const htmlReportURL = data.url;
+                requestReportJSON(info).then(data => resolve({htmlReportURL, body: data}))
+            })
+        }).catch(err => {
+            console.log(err);
+            reject(err)
+        });
+    })
+}
+
+function pollStatus(info) {
+    return new Promise((resolve, reject) => {
+        (function poll() {
+            requestStatus(info).then((data) => {
+                if (data.job.state === "complete") {
+                    console.log("Complete, stop polling.")
+                    resolve(data);
+                } else {
+                    console.log(data.queue);
+                    setTimeout(poll, 2000);
                 }
-                pollInt();
-            } else if (new Date() - start > maxPolling) {
-                console.log(`${info.simId} timed out.`)
-                cb(null, null, new Error("Timed out."));
+            }).catch(err => {
+                console.log(err)
+                if (err.statusCode && err.statusCode == 404)
+                    setTimeout(poll, 2000);
+                else
+                    reject(err);
+            })
+        })();
+    })
+}
+
+function requestStatus(info) {
+    const url = `https://raidbots.com/job/${info.simId}`
+    return new Promise((resolve, reject) => {
+        request.get({url}, (err, resp, body) => {
+            if (err) {
+                console.log(err);
+                reject(err);
             } else {
-                setTimeout(poll, 2000);
+                resolve(JSON.parse(body));
             }
         })
-    }
-    poll();
+    })
 }
 
-function pollStatus(info, cb) {
-    const url = `https://raidbots.com/job/${info.simId}`
-    return request.get({url}, (err, resp, body) => {
-        if (err) {
-            console.log(err);
-        }
-        cb(body);
-    });
-}
-
-function pollReport(info, cb) {
+function requestReportHTML(info, cb) {
     const url = `https://raidbots.com/reports/${info.simId}/index.html`;
-    return request.get({url}, (err, resp, body) => {
-        if (err) {
-            console.log(err);
-        }
-        cb(url, body, resp);
-    });
-}
-
-function getReportJSON(info, cb) {
-    const url = `https://raidbots.com/reports/${info.simId}/data.json`;
-    return request.get({url}, (err, resp, body) => {
-        if (err) {
-            console.log(err);
-        }
-        cb(url, body, resp);
-    });
-}
-
-  function sortProperties(obj, sortedBy, isNumericSort, reverse) {
-            sortedBy = sortedBy || 1; // by default first key
-            isNumericSort = isNumericSort || false; // by default text sort
-            reverse = reverse || false; // by default no reverse
-
-            var reversed = (reverse) ? -1 : 1;
-
-            var sortable = [];
-            for (var key in obj) {
-                if (obj.hasOwnProperty(key)) {
-                    sortable.push([key, obj[key]]);
-                }
+    return new Promise((resolve, reject) => {
+        request.get({url}, (err, resp, body) => {
+            if (err) {
+                console.log(err);
+                reject(err);
+            } else if (resp.statusCode != 200) {
+                reject(resp);
             }
-            if (isNumericSort)
-                sortable.sort(function (a, b) {
-                    return reversed * (a[1][sortedBy] - b[1][sortedBy]);
-                });
-            else
-                sortable.sort(function (a, b) {
-                    var x = a[1][sortedBy].toLowerCase(),
-                        y = b[1][sortedBy].toLowerCase();
-                    return x < y ? reversed * -1 : x > y ? reversed : 0;
-                });
-            return sortable; // array in format [ [ key1, val1 ], [ key2, val2 ], ... ]
-        }
+            resolve({url, body});
+        });
+    })
+}
+
+function requestReportJSON(info, cb) {
+    const url = `https://raidbots.com/reports/${info.simId}/data.json`;
+    return new Promise((resolve, reject) => {
+        request.get({url}, (err, resp, body) => {
+            if (err) {
+                console.log(err);
+                reject(err);
+            }
+            const res = JSON.parse(body);
+            resolve({url, body: res})
+        });
+    })
+}
