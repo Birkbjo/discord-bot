@@ -20,5 +20,8 @@
   },
   "!dj": {
     "file": "dj.js"
+  },
+  "!sim": {
+    "file": "sim.js"
   }
 }
