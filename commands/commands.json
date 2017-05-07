@@ -17,5 +17,8 @@
   },
   "!help": {
     "file": "help.js"
+  },
+  "!dj": {
+    "file": "dj.js"
   }
 }

@@ -4,7 +4,7 @@ const Discord = require("discord.js");
 const strftime = require('strftime');
 const client = new Discord.Client();
 const GUILD_NAME = "The Art of Dying";
-const BOT_ID = 22;
+
 //TEMP
 //****
 let main_guild;
@@ -12,6 +12,7 @@ const alias = {
     mvC : '!move "loot council" "loot council"',
     mvB : '!move "loot council" "raid"',
     '!logs': '!wclogs "The Art of Dying" "Bladefist" --dmg',
+    '!salt': '!dj 3KquFZYi6L0'
 };
 //****
 
@@ -70,12 +71,25 @@ function parseCommand(input) {
     argv = argv.map(elem => elem.replace(/^"(.*)"$/, '$1'));
     const command = argv[0];
     argv = argv.slice(1, argv.length);
+    let nextSpecial;
+    const specialValue = {};
     const args = argv.filter(elem => elem.substr(0,2) !== "--");
-    const specials = argv.filter(elem => elem.substr(0,2) === "--");
+    const specials = argv.filter(elem => {
+        let rawElem = elem.substr(2,elem.length);
+        if(nextSpecial){
+            specialValue[nextSpecial] = elem;
+            nextSpecial = false;
+        }
+        if(elem.substr(0,2) === "--"){
+            nextSpecial = rawElem;
+            return true;
+        }
+    });
     return {
         cmd : command,
         args: args,
-        specials: specials.map(elem => elem.substr(2,elem.length))
+        specials: specials.map(elem => elem.substr(2, elem.length)),
+        specialValue : specialValue
     }
 }
 
@@ -125,5 +139,5 @@ function serverLog(username, event, kwargs) {
     const date = strftime('%F %T', new Date());
 
     let outMessage = `\`[${date}][${username}]: ${body}\``;
-    main_guild.channels.find(chan => chan.name === "log").send(outMessage);
+    //main_guild.channels.find(chan => chan.name === "log").send(outMessage);
 }
