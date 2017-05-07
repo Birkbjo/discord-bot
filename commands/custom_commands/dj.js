@@ -20,6 +20,23 @@ module.exports = (msg, guild, command) => {
         msg.reply(" You do not have permission to do that");
         return;
     }*/
+    if(command.specials.indexOf("status") > -1){
+        let statusString = "\n";
+        for(let key in meta_player){
+            if(key !== "dispatcher"){
+                if(key === "queue"){
+                    statusString += `${key}: \n`;
+                    meta_player[key].forEach(elem => {
+                        statusString += `    ${elem.id} \n`;
+                    });
+                }else{
+                    statusString += `${key}: ${meta_player[key]}\n`
+                }
+            }
+
+        }
+        msg.reply(statusString)
+    }
 
     if(perm && command.specials.indexOf("dev") > -1){
         meta_player.inDev = !meta_player.inDev;
@@ -70,6 +87,7 @@ module.exports = (msg, guild, command) => {
         return
     }
 
+
     if(command.specials.indexOf("stop") > -1){
         if(!perm){
             msg.reply(" You do not have permission to do that");
@@ -114,7 +132,7 @@ module.exports = (msg, guild, command) => {
             meta_player.queue.push({id:vidID, options: streamOptions});
             playYT(djChannel);
         }
-    }else if(ytSearch.length > 1){
+    }else if(ytSearch && ytSearch.length > 1){
         youTube.search(ytSearch, 1, (error, result) => {
             if (error) {
                 console.log(error);
