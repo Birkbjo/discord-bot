@@ -171,8 +171,6 @@ function sendSimRequest(json, doneCB) {
 
 
 function startPoll(info) {
-    //refactor this mess please
-
 
     return new Promise((resolve, reject) => {
         pollStatus(info).then(body => {

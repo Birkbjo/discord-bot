@@ -190,7 +190,7 @@ function playYT(djChannel) {
         console.log("Joined channel");
         console.log("Getting YT stream");
         const stream = ytdl('https://www.youtube.com/watch?v=' + vidID, ytOptions);
-        console.log("Readying YT stream");
+        console.log("Fetching YT stream");
         meta_player.dispatcher = connection.playStream(stream, streamOptions);
 
         meta_player.dispatcher.on("start", () =>{
