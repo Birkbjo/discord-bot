@@ -23,6 +23,7 @@ module.exports = (msg, guild, command) => {
 
     if(perm && command.specials.indexOf("dev") > -1){
         meta_player.inDev = !meta_player.inDev;
+        return;
     }
     if(meta_player.inDev) return;
 
@@ -113,9 +114,10 @@ module.exports = (msg, guild, command) => {
             meta_player.queue.push({id:vidID, options: streamOptions});
             playYT(djChannel);
         }
-    }else{
+    }else if(ytSearch.length > 1){
         youTube.search(ytSearch, 1, (error, result) => {
             if (error) {
+                console.log(error);
                 if(meta_player.queue.length > 1) {
                     if(meta_player.dispatcher) meta_player.dispatcher.end();
                 }
