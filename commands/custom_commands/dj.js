@@ -95,6 +95,7 @@ module.exports = (msg, guild, command) => {
         }
         const allChannels = guild.channels.filter(chan => chan.type === 'voice');
         if(meta_player.dispatcher) meta_player.dispatcher.end();
+        meta_player.queue = [];
         allChannels.every(channel => {
             channel.leave();
             return true;
@@ -126,25 +127,45 @@ module.exports = (msg, guild, command) => {
             if(meta_player.dispatcher) meta_player.dispatcher.end();
         }
     }else if(isYoutube){
+        console.log("Using youtube id");
         if(meta_player.queue.length > 0){
+            console.log("Adding to queue: ", vidID);
             meta_player.queue.push({id:vidID, options: streamOptions});
         }else{
+            console.log("Adding to queue: ", vidID);
             meta_player.queue.push({id:vidID, options: streamOptions});
+            console.log("Playing: ", vidID);
             playYT(djChannel);
         }
     }else if(ytSearch && ytSearch.length > 1){
-        youTube.search(ytSearch, 1, (error, result) => {
+        console.log("Using youtube search");
+        youTube.search(ytSearch, 10, (error, result) => {
             if (error) {
                 console.log(error);
                 if(meta_player.queue.length > 1) {
                     if(meta_player.dispatcher) meta_player.dispatcher.end();
                 }
             } else if(result.items.length > 0){
-                const ytId = result.items[0].id.videoId;
+                let ytId;
+                result.items.every(elem => {
+                    if(elem.id.kind === 'youtube#video'){
+                        ytId = elem.id.videoId;
+                        return false;
+                    }
+                    return true;
+                });
+                if(!ytId){
+                    msg.reply(" No videos found");
+                    return;
+                }
+                console.log("Found youtube id: ", ytId);
                 if(meta_player.queue.length > 0){
+                    console.log("Adding to queue: ", ytId);
                     meta_player.queue.push({id: ytId, options: streamOptions});
                 }else{
+                    console.log("Adding to queue: ", ytId);
                     meta_player.queue.push({id: ytId, options: streamOptions});
+                    console.log("Playing: ", ytId);
                     playYT(djChannel);
                 }
             }
@@ -160,12 +181,21 @@ function playYT(djChannel) {
         filter : 'audioonly',
         quality: "lowest"
     };
+    if(!vidID || !vidID.match(/^[a-zA-Z0-9-_]{11}$/)){
+        if(meta_player.dispatcher) meta_player.dispatcher.end();
+    }
 
     if(meta_player.dispatcher) meta_player.dispatcher.end();
+    console.log("Joining channel");
     djChannel.join().then(connection =>{
+        console.log("Joined channel");
+        console.log("Getting YT stream");
         const stream = ytdl('https://www.youtube.com/watch?v=' + vidID, ytOptions);
+        console.log("Readying YT stream");
         meta_player.dispatcher = connection.playStream(stream, streamOptions);
+
         meta_player.dispatcher.on("start", () =>{
+            console.log("Playing YT stream");
             if(meta_player.playtime && meta_player.playtime > 0 ){
                 setTimeout(() => {
                     if(meta_player.dispatcher) meta_player.dispatcher.end();
@@ -176,15 +206,15 @@ function playYT(djChannel) {
         meta_player.dispatcher.on('end', reason => {
             meta_player.queue.shift();
             if(meta_player.queue.length === 0){
+                console.log("Done, leaving channel");
                 djChannel.leave()
             }else{
+                console.log("Playing next");
                 playYT(djChannel);
             }
         });
         meta_player.dispatcher.on('error', err => {
-            console.log(err);
+            console.log("error on error", err);
         })
-    }).then(dispatcher => {
-
-    }).catch(console.error);
+    }).catch(e => {console.log(e)});
 }
