@@ -44,10 +44,10 @@ function startSim(armObj, msg, guild, type) {
             msg.reply(`your simulation for ${json.baseActorName} has started, you will be notified when it's done!`)
             startPoll(body).then(data => {
                 console.log(data);
-                simCompleted(msg, data.htmlReportURL, data.body.body, json);
+                simCompleted(msg, data.htmlReportURL, data.body.body, json, body);
             }).catch(err => {
                 console.log(err);
-                msg.reply(`An error occured for your simulation of ${json.baseActorName}:\n${err}`)
+                msg.reply(`An error occurred during your simulation of ${json.baseActorName}:\n${err}`)
             });
         }).catch(err => {
             msg.reply(`Failed to start simulation for ${json.baseActorName}.\n${err}`);
@@ -55,11 +55,49 @@ function startSim(armObj, msg, guild, type) {
     })
 }
 
-function simCompleted(msg, htmlReportUrl, resultSimData, requestJson) {
+function simCompleted(msg, htmlReportUrl, resultSimData, requestJson, simStartedJson) {
     let str = "";
     str += `Full report: ${htmlReportUrl}\n`
     str += parseSimResults(resultSimData);
+    const pawnStr = generatePawnString(simStartedJson, resultSimData);
+    str += "\n" + pawnStr;
+    console.log(pawnStr);
     msg.reply("your simulation for " + requestJson.baseActorName + " is done!\n" + str)
+}
+
+function generatePawnString(simStartedJson, resultSimData) {
+    const capitalize = str => str.charAt(0).toUpperCase() + str.slice(1);
+    const players = resultSimData.sim.players;
+    const player = players[0];
+    const scaleFactors = player.scale_factors;
+    if(!scaleFactors) {
+        return "";
+    }
+    const pawnStats = {
+        Crit: 'CritRating',
+        Haste: 'HasteRating',
+        Mastery: 'MasteryRating',
+        Vers: 'Versatility',
+        Int: 'Intellect',
+        Agi: 'Agility',
+        Str: 'Strength'
+
+    }
+    const playerClass = capitalize(simStartedJson.class).replace(/\s/g, '');;
+    const playerSpec = capitalize(simStartedJson.spec).replace(/\s/g, '');
+    const base = `\`\`\`( Pawn v1: "${player.name} - ${playerSpec} ${playerClass}": Class= ${playerClass},
+    Spec=${playerSpec}, `;
+    let factors = "";
+    const pawnKeys = Object.keys(scaleFactors).filter(key => scaleFactors[key] > 0);
+    for(let i = 0; i < pawnKeys.length; i++) {
+        const key = pawnKeys[i];
+        const pawnKey = pawnStats[key];
+        const factor = Math.round(scaleFactors[key] * 100) / 100;
+        if(factor <= 0) continue;
+        factors += `${pawnKey}=${factor}${i < pawnKeys.length -1 ? ", " : " )```"}`
+    }
+
+    return base + factors;
 }
 
 function parseSimResults(jsonResult) {
@@ -69,12 +107,13 @@ function parseSimResults(jsonResult) {
     const scaleFactors = player.scale_factors;
     let scfString = "";
     if (scaleFactors) {
-        const sortedFactors = Object.keys(scaleFactors)
+        const sortedFactors = Object.keys(scaleFactors).filter(key => scaleFactors[key] > 0)
             .sort((a, b) => scaleFactors[b] - scaleFactors[a]);
 
         for (let i = 0; i < sortedFactors.length; i++) {
             const stat = sortedFactors[i];
             const factor = Math.round(scaleFactors[stat] * 100) / 100;
+            if(factor <= 0) continue;
             scfString += stat + ": " + factor
                 + (i != sortedFactors.length - 1 ? " > " : "")
         }
@@ -133,8 +172,7 @@ function sendSimRequest(json, doneCB) {
 
 function startPoll(info) {
     //refactor this mess please
-    const maxPolling = 1000 * 60 * 5; //5min
-    const start = new Date();
+
 
     return new Promise((resolve, reject) => {
         pollStatus(info).then(body => {
@@ -151,13 +189,18 @@ function startPoll(info) {
 }
 
 function pollStatus(info) {
+    const maxPolling = 1000 * 60 * 5; //5min
+    const start = new Date();
     return new Promise((resolve, reject) => {
         (function poll() {
             requestStatus(info).then((data) => {
                 if (data.job.state === "complete") {
                     console.log("Complete, stop polling.")
                     resolve(data);
-                } else {
+                } else if (new Date - start > maxPolling) {
+                    console.log("Timed out");
+                    reject(new Error("Timed out"));
+                } else{
                     console.log(data.queue);
                     setTimeout(poll, 2000);
                 }
