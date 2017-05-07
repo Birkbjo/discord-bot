@@ -184,8 +184,7 @@ function playYT(djChannel) {
     if(!vidID || !vidID.match(/^[a-zA-Z0-9-_]{11}$/)){
         if(meta_player.dispatcher) meta_player.dispatcher.end();
     }
-
-    if(meta_player.dispatcher) meta_player.dispatcher.end();
+    
     console.log("Joining channel");
     djChannel.join().then(connection =>{
         console.log("Joined channel");
