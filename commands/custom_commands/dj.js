@@ -16,17 +16,12 @@ const meta_player = {
 function specialStatus(msg) {
     let statusString = "\n";
     for(let key in meta_player){
-        if(key !== "dispatcher"){
-            if(key === "queue"){
-                statusString += `${key}: \n`;
-                meta_player[key].forEach(elem => {
-                    statusString += `    ${elem.id} \n`;
-                });
-            }else{
-                statusString += `${key}: ${meta_player[key]}\n`
-            }
+        if(key === "queue"){
+            statusString += `${key}: \n`;
+            statusString += meta_player.queue.join("\n    ");
+        }else{
+            statusString += `${key}: ${meta_player[key]}\n`
         }
-
     }
     msg.reply(statusString)
 }
@@ -41,7 +36,7 @@ function assignArgs(key, val) {
 function stopDj() {
     meta_player.queue = [];
     if(meta_player.dispatcher){
-        meta_player.dispatcher.end();
+        meta_player.dispatcher.end("stop");
         meta_player.dispatcher = null;
     }
     meta_player.channel.leave();
@@ -114,7 +109,7 @@ module.exports = (msg, guild, command) => {
 
     }else if(!isSong && command.next && perm){
         if(meta_player.queue.length > 1) {
-            if(meta_player.dispatcher) meta_player.dispatcher.end();
+            if(meta_player.dispatcher) meta_player.dispatcher.end("next");
         }
 
     }else if(isYoutubeID){
@@ -167,7 +162,7 @@ function connectionPlay() {
     };
 
     if(!vidID || !vidID.match(/^[a-zA-Z0-9-_]{11}$/)){
-        if(meta_player.dispatcher) meta_player.dispatcher.end();
+        if(meta_player.dispatcher) meta_player.dispatcher.end("next");
     }
 
     const stream = ytdl(`https://www.youtube.com/watch?v=${vidID}`, ytOptions);
@@ -178,7 +173,7 @@ function connectionPlay() {
         if(streamOptions.playtime && streamOptions.playtime > 0 ){
             console.log("Setting timeout for end: ", streamOptions.playtime);
             setTimeout(() => {
-                if(meta_player.dispatcher) meta_player.dispatcher.end();
+                if(meta_player.dispatcher) meta_player.dispatcher.end("next");
             }, streamOptions.playtime * 1000)
         }
     });
@@ -186,12 +181,18 @@ function connectionPlay() {
     meta_player.dispatcher.on('end', reason => {
         console.log("Dispatch end because ", reason);
         console.log("Shifting queue");
+        meta_player.dispatcher = null;
+        if(reason === undefined){
+            connectionPlay();
+            return;
+        }else if(reason === "stop"){
+            return;
+        }
         meta_player.queue.shift();
         if(meta_player.queue.length === 0){
             console.log("Done, leaving channel");
-            meta_player.dispatcher = null;
             stopDj();
-        }else{
+        }else if(reason === "next"){
             console.log("Playing next ", meta_player.queue[0].id);
             playYT();
         }
