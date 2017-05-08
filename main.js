@@ -69,7 +69,7 @@ function prettyLogMessage(msg) {
 function parseCommand(input) {
     const args = argParser(input.split(/ +(?=(?:(?:[^"]*"){2})*[^"]*$)/g));
     args.cmd = args._.shift();
-    args._ = args._.map(elem => elem.replace(/^"(.*)"$/, '$1'));
+    if(args._.length > 0) args._ = args._.map(elem => elem.replace(/^"(.*)"$/, '$1'));
     return args;
 
 }
