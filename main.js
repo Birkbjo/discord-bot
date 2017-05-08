@@ -2,6 +2,7 @@ const config = require('./config.js');
 const commands = require('./commands/commands.js');
 const Discord = require("discord.js");
 const strftime = require('strftime');
+const argParser = require('minimist');
 const client = new Discord.Client();
 const GUILD_NAME = "The Art of Dying";
 
@@ -19,7 +20,6 @@ const alias = {
 client.on('ready', () => {
     console.log(`Logged in as ${client.user.username}!`);
     main_guild = client.guilds.find('name', GUILD_NAME);
-    //beginServerLogging();
 });
 
 client.on('message', msg => {
@@ -33,7 +33,7 @@ client.on('message', msg => {
         msgBody =  alias[msg.content];
     }
     const command = parseCommand(msgBody);
-    //console.log(msg.content);
+    console.log(command);
     if(commands[command.cmd]){
         commands[command.cmd].run(msg, main_guild, command);
     }
@@ -67,77 +67,9 @@ function prettyLogMessage(msg) {
 }
 
 function parseCommand(input) {
-    let argv = input.split(/ +(?=(?:(?:[^"]*"){2})*[^"]*$)/g);
-    argv = argv.map(elem => elem.replace(/^"(.*)"$/, '$1'));
-    const command = argv[0];
-    argv = argv.slice(1, argv.length);
-    let nextSpecial;
-    const specialValue = {};
-    const args = argv.filter(elem => elem.substr(0,2) !== "--");
-    const specials = argv.filter(elem => {
-        let rawElem = elem.substr(2,elem.length);
-        if(nextSpecial){
-            specialValue[nextSpecial] = elem;
-            nextSpecial = false;
-        }
-        if(elem.substr(0,2) === "--"){
-            nextSpecial = rawElem;
-            return true;
-        }
-    });
-    return {
-        cmd : command,
-        args: args,
-        specials: specials.map(elem => elem.substr(2, elem.length)),
-        specialValue : specialValue
-    }
-}
+    const args = argParser(input.split(/ +(?=(?:(?:[^"]*"){2})*[^"]*$)/g));
+    args.cmd = args._.shift();
+    args._ = args._.map(elem => elem.replace(/^"(.*)"$/, '$1'));
+    return args;
 
-function beginServerLogging() {
-    client.on("voiceStateUpdate", (oldUser, newUser) => {
-        let event, kwargs;
-        if(oldUser.voiceChannelID && newUser.voiceChannelID){
-            event = "changed";
-            kwargs = {
-                voiceFrom : oldUser.voiceChannel.name,
-                voiceTo : newUser.voiceChannel.name
-            }
-        }else if(!oldUser.voiceChannelID && newUser.voiceChannelID){
-            event = "connect";
-            kwargs = {
-                voiceTo : newUser.voiceChannel.name
-            }
-        }else if(oldUser.voiceChannelID && !newUser.voiceChannelID){
-            event = "disconnect";
-            kwargs = {
-                voiceFrom : oldUser.voiceChannel.name
-            }
-        }
-        serverLog(newUser.user.username, event, kwargs);
-
-    });
-}
-
-function serverLog(username, event, kwargs) {
-    const nameLength = 20;
-    const spacesToAddName = nameLength - username.length;
-    let body;
-    if(spacesToAddName < 0){
-        username  = username.replace(/(.*).{3}/, "$1...")
-    }
-    switch(event){
-        case "changed":
-            body = `Changed voice channel from ${kwargs.voiceFrom} to ${kwargs.voiceTo}`;
-            break;
-        case "connect":
-            body = `Connected to voice channel ${kwargs.voiceTo}`;
-            break;
-        case "disconnect":
-            body = `Disconnected from voice channel ${kwargs.voiceFrom}`;
-            break;
-    }
-    const date = strftime('%F %T', new Date());
-
-    let outMessage = `\`[${date}][${username}]: ${body}\``;
-    //main_guild.channels.find(chan => chan.name === "log").send(outMessage);
 }

@@ -7,15 +7,15 @@ wclTypes = {
     dmg: 'damage-done',
     heal: 'healing',
     buffs: 'auras'
-}
+};
 
 module.exports = (msg, guild, command) => {
-    const args = command.args;
-    const modifiers = command.specials;
+    const args = command._;
+    const modifiers = Object.keys(command).filter(elem => !(elem === '_' || elem === 'cmd'));
     const guildName = args[0];
     const server = args[1];
     const region = args[2] || "EU";
-    const params = {}
+    const params = {};
     wlogs.getReportsGuild(guildName, server, region, params,(err, data) => {
 
         if(err) {
@@ -26,7 +26,7 @@ module.exports = (msg, guild, command) => {
         const lastLog = data[data.length-1];
         let type = "";
         if(modifiers.length > 0) {
-            const modifierType = modifiers.find(elem => !!wclTypes[elem] )
+            const modifierType = modifiers.find(elem => !!wclTypes[elem]);
             type = wclTypes[modifierType];
 
         }

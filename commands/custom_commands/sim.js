@@ -5,23 +5,23 @@ const simTypes = {
     scale: 'stats',
     quick: 'quick'
 
-}
+};
 
 module.exports = (msg, guild, command) => {
-    const args = command.args;
-    const modifiers = command.specials;
+    const args = command._;
+    const modifiers = Object.keys(command).filter(elem => !(elem === '_' || elem === 'cmd'));
     const charName = args[0];
     const server = args[1];
     const region = args[2] || "EU";
 
     let type = "quick";
     if (modifiers.length > 0) {
-        const modifierType = modifiers.find(elem => !!simTypes[elem])
+        const modifierType = modifiers.find(elem => !!simTypes[elem]);
         type = simTypes[modifierType];
     }
 
     startSim({name: charName, realm: server, region}, msg, guild, type)
-}
+};
 
 
 //startSim({name: "Padni", realm: "bladefist", region: "eu"})
@@ -39,9 +39,9 @@ function startSim(armObj, msg, guild, type) {
             msg.reply(`Failed to retrieve character ${armObj.name}. Simulation aborted.\n${err}`);
             return;
         }
-        const json = createSimJSON(data, armObj, type)
+        const json = createSimJSON(data, armObj, type);
         sendSimRequest(json).then(body => {
-            msg.reply(`your simulation for ${json.baseActorName} has started, you will be notified when it's done!`)
+            msg.reply(`your simulation for ${json.baseActorName} has started, you will be notified when it's done!`);
             startPoll(body).then(data => {
                 console.log(data);
                 simCompleted(msg, data.htmlReportURL, data.body.body, json);
@@ -57,7 +57,7 @@ function startSim(armObj, msg, guild, type) {
 
 function simCompleted(msg, htmlReportUrl, resultSimData, requestJson) {
     let str = "";
-    str += `Full report: ${htmlReportUrl}\n`
+    str += `Full report: ${htmlReportUrl}\n`;
     str += parseSimResults(resultSimData);
     msg.reply("your simulation for " + requestJson.baseActorName + " is done!\n" + str)
 }
@@ -106,7 +106,7 @@ function createSimJSON(arm, armObj, type) {
         text: "",
         type: type,
 
-    }
+    };
     return json;
 
 }
@@ -120,10 +120,10 @@ function sendSimRequest(json, doneCB) {
     return new Promise((resolve, reject) => {
         request.post({url, jar: j, body: json, json: true}, (err, resp, body) => {
             if (err) {
-                console.log(err)
+                console.log(err);
                 reject(err);
             } else {
-                console.log("Started sim for " + json.baseActorName)
+                console.log("Started sim for " + json.baseActorName);
                 resolve(body);
             }
         })
@@ -155,14 +155,14 @@ function pollStatus(info) {
         (function poll() {
             requestStatus(info).then((data) => {
                 if (data.job.state === "complete") {
-                    console.log("Complete, stop polling.")
+                    console.log("Complete, stop polling.");
                     resolve(data);
                 } else {
                     console.log(data.queue);
                     setTimeout(poll, 2000);
                 }
             }).catch(err => {
-                console.log(err)
+                console.log(err);
                 if (err.statusCode && err.statusCode == 404)
                     setTimeout(poll, 2000);
                 else
@@ -173,7 +173,7 @@ function pollStatus(info) {
 }
 
 function requestStatus(info) {
-    const url = `https://raidbots.com/job/${info.simId}`
+    const url = `https://raidbots.com/job/${info.simId}`;
     return new Promise((resolve, reject) => {
         request.get({url}, (err, resp, body) => {
             if (err) {

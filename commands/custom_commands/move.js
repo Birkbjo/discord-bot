@@ -1,9 +1,9 @@
 module.exports = (msg, guild, command) => {
-    if(command.args.length < 2){
+    if(command._.length < 2){
         return;
     }
-    const roleStr = command.args[0];
-    const roomTo = command.args[1];
+    const roleStr = command._[0];
+    const roomTo = command._[1];
 
     let members;
     const requestMember = msg.member;
