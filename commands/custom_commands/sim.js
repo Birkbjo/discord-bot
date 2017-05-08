@@ -85,7 +85,7 @@ function generatePawnString(simStartedJson, resultSimData) {
     }
     const playerClass = capitalize(simStartedJson.class).replace(/\s/g, '');;
     const playerSpec = capitalize(simStartedJson.spec).replace(/\s/g, '');
-    const base = `\`\`\`( Pawn v1: "${player.name} - ${playerSpec} ${playerClass}": Class= ${playerClass},
+    const base = `\`\`\`( Pawn: v1: "${player.name} - ${playerSpec} ${playerClass}": Class= ${playerClass},
     Spec=${playerSpec}, `;
     let factors = "";
     const pawnKeys = Object.keys(scaleFactors).filter(key => scaleFactors[key] > 0);
