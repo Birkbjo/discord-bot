@@ -94,7 +94,7 @@ module.exports = (msg, guild, command) => {
             return;
         }
         const allChannels = guild.channels.filter(chan => chan.type === 'voice');
-        if(meta_player.dispatcher) meta_player.dispatcher.end();
+        if(meta_player.dispatcher) meta_player.dispatcher.end("stop");
         meta_player.queue = [];
         allChannels.every(channel => {
             channel.leave();
@@ -124,7 +124,10 @@ module.exports = (msg, guild, command) => {
             return;
         }
         if(meta_player.queue.length > 1) {
-            if(meta_player.dispatcher) meta_player.dispatcher.end();
+            if(meta_player.dispatcher) {
+                meta_player.dispatcher.end("next");
+              //  playYT(djChannel);
+            }
         }
     }else if(isYoutube){
         console.log("Using youtube id");
@@ -143,7 +146,7 @@ module.exports = (msg, guild, command) => {
             if (error) {
                 console.log(error);
                 if(meta_player.queue.length > 1) {
-                    if(meta_player.dispatcher) meta_player.dispatcher.end();
+                    if(meta_player.dispatcher) meta_player.dispatcher.end("error");
                 }
             } else if(result.items.length > 0){
                 let ytId;
@@ -173,6 +176,54 @@ module.exports = (msg, guild, command) => {
     }
 };
 
+function startStream(streamOptions, vidId, ytOptions, djChannel, connection) {
+    console.log("Getting YT stream");
+    const stream = ytdl('https://www.youtube.com/watch?v=' + vidId, ytOptions);
+    console.log("Fetching YT stream");
+    meta_player.dispatcher = null;
+    if(meta_player.dispatcher) {
+        console.log(meta_player.dispatcher.eventNames());
+        console.log(meta_player.dispatcher.destroyed);
+    }
+    meta_player.dispatcher = connection.playStream(stream, streamOptions);
+    console.log(meta_player.dispatcher.eventNames());
+    const startListener = meta_player.dispatcher.on("start", () =>{
+        if(meta_player.dispatcher && meta_player.dispatcher.destroyed) {
+            //    return;
+        }
+        console.log("Playing YT stream");
+        if(meta_player.playtime && meta_player.playtime > 0 ){
+          /*  setTimeout(() => {
+                if(meta_player.dispatcher) meta_player.dispatcher.end("done");
+            }, meta_player.playtime * 1000) */
+        }
+    });
+
+    const endListener = meta_player.dispatcher.on('end', reason => {
+        console.log("ending " + reason)
+        meta_player.dispatcher = null;
+        console.log(reason == undefined)
+        if(reason === undefined) {
+            startStream(streamOptions, meta_player.queue[0].id, ytOptions, djChannel, connection);
+            return;
+        }
+        meta_player.queue.shift();
+        if(meta_player.queue.length === 0){
+            console.log("Done, leaving channel");
+            djChannel.leave()
+        }else if(reason == "next") {
+            console.log("Playing next");
+         //   meta_player.dispatcher.removeListener('end');
+
+            startStream(streamOptions, meta_player.queue[0].id, ytOptions, djChannel, connection);
+        }
+    });
+    meta_player.dispatcher.on('error', err => {
+        console.log("error on error", err);
+    })
+    console.log(meta_player.dispatcher.eventNames());
+}
+
 function playYT(djChannel) {
     const vidID = meta_player.queue[0].id;
     const streamOptions = meta_player.queue[0].options;
@@ -182,38 +233,14 @@ function playYT(djChannel) {
         quality: "lowest"
     };
     if(!vidID || !vidID.match(/^[a-zA-Z0-9-_]{11}$/)){
-        if(meta_player.dispatcher) meta_player.dispatcher.end();
+        ///if(meta_player.dispatcher) meta_player.dispatcher.end();
     }
     
     console.log("Joining channel");
     djChannel.join().then(connection =>{
         console.log("Joined channel");
         console.log("Getting YT stream");
-        const stream = ytdl('https://www.youtube.com/watch?v=' + vidID, ytOptions);
         console.log("Fetching YT stream");
-        meta_player.dispatcher = connection.playStream(stream, streamOptions);
-
-        meta_player.dispatcher.on("start", () =>{
-            console.log("Playing YT stream");
-            if(meta_player.playtime && meta_player.playtime > 0 ){
-                setTimeout(() => {
-                    if(meta_player.dispatcher) meta_player.dispatcher.end();
-                }, meta_player.playtime * 1000)
-            }
-        });
-
-        meta_player.dispatcher.on('end', reason => {
-            meta_player.queue.shift();
-            if(meta_player.queue.length === 0){
-                console.log("Done, leaving channel");
-                djChannel.leave()
-            }else{
-                console.log("Playing next");
-                playYT(djChannel);
-            }
-        });
-        meta_player.dispatcher.on('error', err => {
-            console.log("error on error", err);
-        })
+        startStream(streamOptions, vidID, ytOptions, djChannel, connection )
     }).catch(e => {console.log(e)});
 }
