@@ -31,7 +31,7 @@ module.exports = (msg, guild, command) => {
             simOpts.type = simTypes[param];
         }
         const paramValue = command[param];
-        if (paramValue) {
+        if (paramValue) { //need more specific check here, as we add simOpts for e.g "scale=true"
             simOpts[param] = paramValue;
         }
 
@@ -69,6 +69,9 @@ function startSim(armObj, msg, guild, opts) {
             })
         }).catch(err => {
             console.log(err);
+            let errMsg = err;
+            if(err.body && err.body.error)
+                errMsg = err.body.error;
             msg.reply(`Failed to start advanced simulation.\n${err.body.error}`);
         })
 
@@ -90,7 +93,7 @@ function startSim(armObj, msg, guild, opts) {
                     msg.reply(`An error occurred during your simulation of ${json.baseActorName}:\n${err}`)
                 });
             }).catch(err => {
-                //console.log(err);
+                console.log(err);
                 msg.reply(`Failed to start simulation for ${json.baseActorName}.\n${err}`);
             })
         })
@@ -177,7 +180,7 @@ function createSimJSON(arm, armObj, opts) {
         fightLength: 300,
         fightStyle: "Patchwerk",
         frontendHost: "raidbots.com",
-        frontendVersion: "17ce9b7bcf0d8d9e534816f81585f25e4b727b2d",
+        frontendVersion: "2d69119f8063dc5f0a43cfa40cd8846fa5d1c3ee",
         gearsets: [],
         iterations: opts.iterations || 10000,
         relics: [],
@@ -198,15 +201,16 @@ function createSimJSON(arm, armObj, opts) {
 }
 
 function sendSimRequest(json, doneCB) {
-    const url = "https://raidbots.com/sim";
+    const url = "https://www.raidbots.com/sim";
     const j = request.jar();
-    const cookie = request.cookie("raidsid=s%3ACcTAy05q-w4Pt3FFR3P3TYf-geSfCUGi.as4QQuhDNQWFdaF3BHOT1piFMr80HyY5kY8MNl%2F56Ts")
+    const cookie = request.cookie("raidsid=s%3ALQVBpim-51GV8hz0IkVCUpl4R1eD4ArZ.eaIsjGdulzLkNncYG53m8Pr9BDw92ZiMMhjLpD9lbrQ")
     j.setCookie(cookie, url);
 
     return new Promise((resolve, reject) => {
         request.post({url, jar: j, body: json, json: true}, (err, resp, body) => {
             if (err || resp.statusCode != 200) {
                 console.log(err);
+                console.log(resp.statusMessage)
                 reject({err, body, resp});
             } else {
                 console.log("Started sim for " + json.baseActorName);
