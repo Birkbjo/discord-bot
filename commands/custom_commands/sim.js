@@ -31,7 +31,7 @@ module.exports = (msg, guild, command) => {
             simOpts.type = simTypes[param];
         }
         const paramValue = command[param];
-        if (paramValue && !simTypes[param]) {
+        if (paramValue) {
             simOpts[param] = paramValue;
         }
 
