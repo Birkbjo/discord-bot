@@ -73,6 +73,8 @@ function stopDj() {
     if(meta_player.channel) meta_player.channel.leave();
     meta_player.channel = null;
     meta_player.voiceConnection = null;
+    if(meta_player.lastMsg) meta_player.lastMsg.clearReactions().catch(error => console.log(error));
+    meta_player.lastMsg = null;
 }
 
 function emoteButtons(msg) {
