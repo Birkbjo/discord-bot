@@ -42,7 +42,7 @@ module.exports = (msg, guild, command) => {
 
 
 //startSim({name: "Padni", realm: "bladefist", region: "eu"})
-
+let gl_statusMsg = null;
 function startSim(armObj, msg, guild, opts) {
     const {region, realm} = armObj;
     armory.set_options({
@@ -84,8 +84,10 @@ function startSim(armObj, msg, guild, opts) {
             }
             const json = createSimJSON(data, armObj, opts);
             sendSimRequest(json).then(body => {
-                msg.reply(`your simulation for ${json.baseActorName} has started, you will be notified when it's done!`);
-                startPoll(body).then(data => {
+                let statusMsg = null;
+                msg.reply(`your simulation for ${json.baseActorName} has started, you will be notified when it's done!`)
+                    .then(msg => gl_statusMsg = msg);
+                startPoll(body, statusMsg).then(data => {
                     console.log(data);
                     simCompleted(msg, data.htmlReportURL, data.body.body, json, body);
                 }).catch(err => {
@@ -221,10 +223,10 @@ function sendSimRequest(json, doneCB) {
 }
 
 
-function startPoll(info) {
+function startPoll(info, statusMsg) {
 
     return new Promise((resolve, reject) => {
-        pollStatus(info).then(body => {
+        pollStatus(info, statusMsg).then(body => {
             console.log("Result: " + body);
             requestReportHTML(info).then((data) => {
                 const htmlReportURL = data.url;
@@ -240,6 +242,7 @@ function startPoll(info) {
 function pollStatus(info) {
     const maxPolling = 1000 * 60 * 5; //5min
     const start = new Date();
+    let orgStatusMsgContent;
     return new Promise((resolve, reject) => {
         (function poll() {
             requestStatus(info).then((data) => {
@@ -250,8 +253,32 @@ function pollStatus(info) {
                     console.log("Timed out");
                     reject(new Error("Timed out"));
                 } else {
+                    console.log(data.log);
                     console.log(data.queue);
-                    setTimeout(poll, 2000);
+                    if(gl_statusMsg) {
+                        if(!orgStatusMsgContent && gl_statusMsg.content) {
+                            orgStatusMsgContent = gl_statusMsg.content;
+                        }
+                        console.log("log length " + data.log.length);
+                        const lastLogMsg = data.log[data.log.length-1];
+                        const {position, total } = data.queue;
+                        const statusStr = `\nIn queue: (${position}/${total})`;
+                        let simProgressMsg = "";
+                        console.log(lastLogMsg)
+                        if(lastLogMsg && lastLogMsg.startsWith("Generating")) {
+                            simProgressMsg = "In progress:";
+                            const log = lastLogMsg.split(" ");
+                            const progress = log[5];
+                            console.log(progress);
+                            const progressVals = progress.split("/");
+                            console.log(progressVals);
+                            const simProgressPercent = (parseInt(progressVals[0]) / parseInt(progressVals[1])) * 100;
+                            console.log("Percent: " + simProgressPercent)
+                            simProgressMsg = `${simProgressMsg} ${simProgressPercent} %`;
+                        }
+                        gl_statusMsg.edit(orgStatusMsgContent + statusStr + "\n" + simProgressMsg);
+                    }
+                    setTimeout(poll, 1000);
                 }
             }).catch(err => {
                 console.log(err);
