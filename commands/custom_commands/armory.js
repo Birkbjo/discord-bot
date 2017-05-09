@@ -3,9 +3,13 @@ const config = require('../../config.js');
 
 module.exports = (msg, guild, command) => {
     const answerChannel = guild.channels.find(chan => chan.id === msg.channel.id);
-    const character = command._[0];
-    const realm = command._[1];
+    let character = command._[0];
+    let realm = command._[1];
     const region = command._[2] || "EU";
+    if(character.indexOf("-") > -1){
+        realm = character.replace(/.*?-(.*)/, "$1");
+        character = character.replace(/(.*?)-.*/, "$1");
+    }
     if(!realm || !character){
         return;
     }
