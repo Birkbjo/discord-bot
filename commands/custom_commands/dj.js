@@ -9,16 +9,47 @@ const meta_player = {
     voiceConnection : null,
     queue : [],
     volume: 0.5,
-    channel: false,
+    channel: null,
     inDev : false,
+    lastMsg: null
 };
+
+function pauseAndPlayDispatch() {
+    if(meta_player.dispatcher && meta_player.dispatcher.paused){
+        meta_player.dispatcher.resume()
+    }else if(meta_player.dispatcher && !meta_player.dispatcher.paused) {
+        meta_player.dispatcher.pause()
+    }
+}
+
+function nextTrack() {
+    if(meta_player.queue.length > 1) {
+        if(meta_player.dispatcher) meta_player.dispatcher.end("next");
+    }
+}
+
+function changeVolume() {
+    const volume = meta_player.volume;
+    if(volume && volume <= 1 && volume >= 0 && meta_player.dispatcher){
+        console.log("Setting volume", volume);
+        meta_player.dispatcher.setVolume(volume);
+    }
+}
+
+function addSong(ytId, streamOptions) {
+    if(meta_player.queue.length > 0){
+        meta_player.queue.push({id: ytId, options: streamOptions});
+    }else{
+        meta_player.queue.push({id: ytId, options: streamOptions});
+        playYT();
+    }
+}
 
 function specialStatus(msg) {
     let statusString = "\n";
     for(let key in meta_player){
         if(key === "queue"){
-            statusString += `${key}: \n`;
-            statusString += meta_player.queue.join("\n    ");
+            statusString += `${key}: ${meta_player.queue.length}\n`;
         }else{
             statusString += `${key}: ${meta_player[key]}\n`
         }
@@ -39,8 +70,38 @@ function stopDj() {
         meta_player.dispatcher.end("stop");
         meta_player.dispatcher = null;
     }
-    meta_player.channel.leave();
+    if(meta_player.channel) meta_player.channel.leave();
+    meta_player.channel = null;
     meta_player.voiceConnection = null;
+}
+
+function emoteButtons(msg) {
+    if(meta_player.lastMsg) meta_player.lastMsg.clearReactions().catch(error => console.log(error));
+    meta_player.lastMsg = msg;
+    const buttons = {
+        "⏯" : pauseAndPlayDispatch,
+        "⏹": msg => {msg.clearReactions().catch(error => console.log(error));stopDj()},
+        "🔉": () => {meta_player.volume -= 0.1; changeVolume()},
+        "🔊": () => {meta_player.volume += 0.1; changeVolume()},
+        "⏭": nextTrack
+    };
+
+    const validButtons = Object.keys(buttons);
+    validButtons.every(butt => {
+        msg.react(butt).catch(error => console.log(error));
+        return true
+    });
+
+    const collector = msg.createReactionCollector(
+        (reaction, user) => !user.bot && validButtons.includes(reaction.emoji.name)
+    );
+
+    collector.on('collect', r => {
+        if(buttons[r.emoji.name]){
+            buttons[r.emoji.name](msg);
+        }
+        r.remove(msg.author.id);
+    });
 }
 
 module.exports = (msg, guild, command) => {
@@ -49,6 +110,7 @@ module.exports = (msg, guild, command) => {
         msg.reply(" You do not have permission to do that");
         return;
     }*/
+
     if(command.status){
         specialStatus(msg);
         return;
@@ -91,36 +153,18 @@ module.exports = (msg, guild, command) => {
     }
 
     if(!isSong && command.volume && perm){
-        if(vol && vol <= 1 && meta_player.dispatcher){
-            console.log("Setting volume", vol);
-            meta_player.dispatcher.setVolume(vol);
-        }
+        changeVolume();
     }
 
-    if(!isSong && command.pause && perm){
-        if(meta_player.dispatcher && !meta_player.dispatcher.paused){
-            meta_player.dispatcher.pause()
-        }
-
-    }else if(!isSong && command.play && perm){
-        if(meta_player.dispatcher && meta_player.dispatcher.paused){
-            meta_player.dispatcher.resume();
-        }
-
+    if(!isSong && (command.pause || command.play) && perm){
+        pauseAndPlayDispatch();
     }else if(!isSong && command.next && perm){
-        if(meta_player.queue.length > 1) {
-            if(meta_player.dispatcher) meta_player.dispatcher.end("next");
-        }
-
+        nextTrack();
     }else if(isYoutubeID){
-        if(meta_player.queue.length > 0){
-            meta_player.queue.push({id:vidID, options: streamOptions});
-        }else{
-            meta_player.queue.push({id:vidID, options: streamOptions});
-            playYT();
-        }
-
+        emoteButtons(msg);
+        addSong(vidID, streamOptions);
     }else if(isYotubeSearch){
+        emoteButtons(msg);
         youTube.search(vidID, 10, (error, result) => {
             if (error) {
                 console.log(error);
@@ -140,12 +184,7 @@ module.exports = (msg, guild, command) => {
                 if(!ytId){
                     return;
                 }
-                if(meta_player.queue.length > 0){
-                    meta_player.queue.push({id: ytId, options: streamOptions});
-                }else{
-                    meta_player.queue.push({id: ytId, options: streamOptions});
-                    playYT(djChannel);
-                }
+                addSong(ytId, streamOptions);
             }
         });
     }
@@ -207,11 +246,14 @@ function playYT() {
         console.log("Already in channel");
         connectionPlay();
     }else{
-        meta_player.channel.join().then(connection =>{
-            console.log("Joined channel");
-            meta_player.voiceConnection = connection;
-            connectionPlay();
-        }).catch(e => {console.log(e)});
+        if(meta_player.channel) {
+            meta_player.channel.join().then(connection => {
+                console.log("Joined channel");
+                meta_player.voiceConnection = connection;
+                connectionPlay();
+            }).catch(e => {
+                console.log(e)
+            });
+        }
     }
-
 }
