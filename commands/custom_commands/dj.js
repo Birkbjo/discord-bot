@@ -231,7 +231,7 @@ function connectionPlay() {
         if(meta_player.queue.length === 0){
             console.log("Done, leaving channel");
             stopDj();
-        }else if(reason === "next"){
+        }else if(reason === "next" || reason === "Stream is not generating quickly enough."){
             console.log("Playing next ", meta_player.queue[0].id);
             playYT();
         }
