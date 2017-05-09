@@ -1,32 +1,49 @@
 const armory = require("wow-armory");
 const config = require("../../config");
 const request = require("request");
+
+
 const simTypes = {
     scale: 'stats',
-    quick: 'quick'
+    quick: 'quick',
+    profile: 'advanced',
+}
 
+//Maps parameter names to names used in "API"-requests
+const acceptedParams = {
+    scale: 'stats',
+    quick: 'quick',
+    profile: 'advanced',
+    iterations: 'iterations',
 };
 
 module.exports = (msg, guild, command) => {
     const args = command._;
-    const modifiers = Object.keys(command).filter(elem => !(elem === '_' || elem === 'cmd'));
-    const charName = args[0];
-    const server = args[1];
+    const params = Object.keys(command).filter(elem => !(elem === '_' || elem === 'cmd'));
+    const charName = args[0] || "";
+    const server = args[1] || "";
     const region = args[2] || "EU";
 
-    let type = "quick";
-    if (modifiers.length > 0) {
-        const modifierType = modifiers.find(elem => !!simTypes[elem]);
-        type = simTypes[modifierType];
-    }
+    let simOpts = {type: "quick", profile: "", iterations: 10000}
+    const specialParams = params.filter(elem => !!acceptedParams[elem])
+    specialParams.forEach(param => {
+        if (simTypes[param]) {  // istype
+            simOpts.type = simTypes[param];
+        }
+        const paramValue = command[param];
+        if (paramValue) { //need more specific check here, as we add simOpts for e.g "scale=true"
+            simOpts[param] = paramValue;
+        }
 
-    startSim({name: charName, realm: server, region}, msg, guild, type)
+    })
+    console.log(simOpts);
+    startSim({name: charName, realm: server, region}, msg, guild, simOpts)
 };
 
 
 //startSim({name: "Padni", realm: "bladefist", region: "eu"})
 
-function startSim(armObj, msg, guild, type) {
+function startSim(armObj, msg, guild, opts) {
     const {region, realm} = armObj;
     armory.set_options({
         "region": region,
@@ -34,25 +51,53 @@ function startSim(armObj, msg, guild, type) {
         "apikey": config.blizzApiKey
     });
 
-    armory.character({"name": armObj.name, "fields": ["items", "talents"]}, (err, data) => {
-        if (err) {
-            msg.reply(`Failed to retrieve character ${armObj.name}. Simulation aborted.\n${err}`);
+    if (opts.type == "advanced") {
+        if (!opts.profile) {
+            msg.reply("Failed to start advanced simulation. No profile-input given.")
             return;
         }
-        const json = createSimJSON(data, armObj, type);
+        const json = createSimJSON(null, armObj, opts);
         sendSimRequest(json).then(body => {
-            msg.reply(`your simulation for ${json.baseActorName} has started, you will be notified when it's done!`);
+            console.log(body)
+            msg.reply(`your advanced simulation has started, you will be notified when it's done!`);
             startPoll(body).then(data => {
                 console.log(data);
                 simCompleted(msg, data.htmlReportURL, data.body.body, json, body);
             }).catch(err => {
                 console.log(err);
                 msg.reply(`An error occurred during your simulation of ${json.baseActorName}:\n${err}`)
-            });
+            })
         }).catch(err => {
-            msg.reply(`Failed to start simulation for ${json.baseActorName}.\n${err}`);
+            console.log(err);
+            let errMsg = err;
+            if(err.body && err.body.error)
+                errMsg = err.body.error;
+            msg.reply(`Failed to start advanced simulation.\n${err.body.error}`);
         })
-    })
+
+    } else {
+
+        armory.character({"name": armObj.name, "fields": ["items", "talents"]}, (err, data) => {
+            if (err) {
+                msg.reply(`Failed to retrieve character ${armObj.name}. Simulation aborted.\n${err}`);
+                return;
+            }
+            const json = createSimJSON(data, armObj, opts);
+            sendSimRequest(json).then(body => {
+                msg.reply(`your simulation for ${json.baseActorName} has started, you will be notified when it's done!`);
+                startPoll(body).then(data => {
+                    console.log(data);
+                    simCompleted(msg, data.htmlReportURL, data.body.body, json, body);
+                }).catch(err => {
+                    console.log(err);
+                    msg.reply(`An error occurred during your simulation of ${json.baseActorName}:\n${err}`)
+                });
+            }).catch(err => {
+                console.log(err);
+                msg.reply(`Failed to start simulation for ${json.baseActorName}.\n${err}`);
+            })
+        })
+    }
 }
 
 function simCompleted(msg, htmlReportUrl, resultSimData, requestJson, simStartedJson) {
@@ -62,7 +107,9 @@ function simCompleted(msg, htmlReportUrl, resultSimData, requestJson, simStarted
     const pawnStr = generatePawnString(simStartedJson, resultSimData);
     str += "\n" + pawnStr;
     console.log(pawnStr);
-    msg.reply("your simulation for " + requestJson.baseActorName + " is done!\n" + str)
+    const players = resultSimData.sim.players;
+    const player = players[0];
+    msg.reply("your simulation for " + player.name.replace(/^\s+|\s+$/g, '') + " is done!\n" + str)
 }
 
 function generatePawnString(simStartedJson, resultSimData) {
@@ -70,7 +117,7 @@ function generatePawnString(simStartedJson, resultSimData) {
     const players = resultSimData.sim.players;
     const player = players[0];
     const scaleFactors = player.scale_factors;
-    if(!scaleFactors) {
+    if (!scaleFactors) {
         return "";
     }
     const pawnStats = {
@@ -83,18 +130,19 @@ function generatePawnString(simStartedJson, resultSimData) {
         Str: 'Strength'
 
     }
-    const playerClass = capitalize(simStartedJson.class).replace(/\s/g, '');;
+    const playerClass = capitalize(simStartedJson.class).replace(/\s/g, '');
+    ;
     const playerSpec = capitalize(simStartedJson.spec).replace(/\s/g, '');
     const base = `\`\`\`( Pawn: v1: "${player.name} - ${playerSpec} ${playerClass}": Class= ${playerClass},
     Spec=${playerSpec}, `;
     let factors = "";
     const pawnKeys = Object.keys(scaleFactors).filter(key => scaleFactors[key] > 0);
-    for(let i = 0; i < pawnKeys.length; i++) {
+    for (let i = 0; i < pawnKeys.length; i++) {
         const key = pawnKeys[i];
         const pawnKey = pawnStats[key];
         const factor = Math.round(scaleFactors[key] * 100) / 100;
-        if(factor <= 0) continue;
-        factors += `${pawnKey}=${factor}${i < pawnKeys.length -1 ? ", " : " )```"}`
+        if (factor <= 0) continue;
+        factors += `${pawnKey}=${factor}${i < pawnKeys.length - 1 ? ", " : " )```"}`
     }
 
     return base + factors;
@@ -113,7 +161,7 @@ function parseSimResults(jsonResult) {
         for (let i = 0; i < sortedFactors.length; i++) {
             const stat = sortedFactors[i];
             const factor = Math.round(scaleFactors[stat] * 100) / 100;
-            if(factor <= 0) continue;
+            if (factor <= 0) continue;
             scfString += stat + ": " + factor
                 + (i != sortedFactors.length - 1 ? " > " : "")
         }
@@ -122,20 +170,19 @@ function parseSimResults(jsonResult) {
     return "```DPS: " + dps + (scaleFactors ? "\nScale Factors: " + scfString : "") + "```"
 }
 
-function createSimJSON(arm, armObj, type) {
+function createSimJSON(arm, armObj, opts) {
     //console.log(arm);
     const json = {
-        advancedInput: "",
+        advancedInput: opts.profile || "",
         armory: armObj,
-        baseActorName: arm.name,
-        character: arm,
+        baseActorName: arm && (arm.name || ""),
         email: "",
         fightLength: 300,
         fightStyle: "Patchwerk",
         frontendHost: "raidbots.com",
-        frontendVersion: "17ce9b7bcf0d8d9e534816f81585f25e4b727b2d",
+        frontendVersion: "2d69119f8063dc5f0a43cfa40cd8846fa5d1c3ee",
         gearsets: [],
-        iterations: 10000,
+        iterations: opts.iterations || 10000,
         relics: [],
         reportName: "Quick Sim",
         sendEmail: false,
@@ -143,24 +190,28 @@ function createSimJSON(arm, armObj, type) {
         simcVersion: "nightly",
         talentsets: [],
         text: "",
-        type: type,
+        type: opts.type,
 
     };
+    if (arm) {
+        json.character = arm;
+    }
     return json;
 
 }
 
 function sendSimRequest(json, doneCB) {
-    const url = "https://raidbots.com/sim";
+    const url = "https://www.raidbots.com/sim";
     const j = request.jar();
-    const cookie = request.cookie("raidsid=s%3ACcTAy05q-w4Pt3FFR3P3TYf-geSfCUGi.as4QQuhDNQWFdaF3BHOT1piFMr80HyY5kY8MNl%2F56Ts")
+    const cookie = request.cookie("raidsid=s%3ALQVBpim-51GV8hz0IkVCUpl4R1eD4ArZ.eaIsjGdulzLkNncYG53m8Pr9BDw92ZiMMhjLpD9lbrQ")
     j.setCookie(cookie, url);
 
     return new Promise((resolve, reject) => {
         request.post({url, jar: j, body: json, json: true}, (err, resp, body) => {
-            if (err) {
+            if (err || resp.statusCode != 200) {
                 console.log(err);
-                reject(err);
+                console.log(resp.statusMessage)
+                reject({err, body, resp});
             } else {
                 console.log("Started sim for " + json.baseActorName);
                 resolve(body);
@@ -198,7 +249,7 @@ function pollStatus(info) {
                 } else if (new Date - start > maxPolling) {
                     console.log("Timed out");
                     reject(new Error("Timed out"));
-                } else{
+                } else {
                     console.log(data.queue);
                     setTimeout(poll, 2000);
                 }
