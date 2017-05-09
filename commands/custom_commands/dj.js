@@ -220,7 +220,7 @@ function connectionPlay() {
     meta_player.dispatcher.on('end', reason => {
         console.log("Dispatch end because ", reason);
         console.log("Shifting queue");
-        meta_player.dispatcher = null;
+
         if(reason === undefined){
             connectionPlay();
             return;
