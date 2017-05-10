@@ -1,4 +1,4 @@
-const armory = require("wow-armory");
+const armoryAPI = require("wow-armory");
 const config = require("../../config");
 const request = require("request");
 
@@ -37,15 +37,23 @@ module.exports = (msg, guild, command) => {
 
     })
     console.log(simOpts);
-    startSim({name: charName, realm: server, region}, msg, guild, simOpts)
+    armoryAPI.set_options({
+        "region": region,
+        "realm": server,
+        "apikey": config.blizzApiKey
+    });
+    const armoryMeta = {name: charName, realm: server, region}
+    const sim = new Sim(msg, armoryMeta, simOpts);
+    sim.runSim();
+    //startSim({name: charName, realm: server, region}, msg, simOpts)
 };
 
 
 //startSim({name: "Padni", realm: "bladefist", region: "eu"})
 let gl_statusMsg = null;
-function startSim(armObj, msg, guild, opts) {
+function startSim(armObj, msg, opts) {
     const {region, realm} = armObj;
-    armory.set_options({
+    armoryAPI.set_options({
         "region": region,
         "realm": realm,
         "apikey": config.blizzApiKey
@@ -70,14 +78,14 @@ function startSim(armObj, msg, guild, opts) {
         }).catch(err => {
             console.log(err);
             let errMsg = err;
-            if(err.body && err.body.error)
+            if (err.body && err.body.error)
                 errMsg = err.body.error;
             msg.reply(`Failed to start advanced simulation.\n${err.body.error}`);
         })
 
     } else {
 
-        armory.character({"name": armObj.name, "fields": ["items", "talents"]}, (err, data) => {
+        armoryAPI.character({"name": armObj.name, "fields": ["items", "talents"]}, (err, data) => {
             if (err) {
                 msg.reply(`Failed to retrieve character ${armObj.name}. Simulation aborted.\n${err}`);
                 return;
@@ -129,22 +137,43 @@ function generatePawnString(simStartedJson, resultSimData) {
         Vers: 'Versatility',
         Int: 'Intellect',
         Agi: 'Agility',
-        Str: 'Strength'
-
+        Str: 'Strength',
+        Wdps: 'Dps',
+        AP: 'Ap'
     }
-    const playerClass = capitalize(simStartedJson.class).replace(/\s/g, '');
-    ;
-    const playerSpec = capitalize(simStartedJson.spec).replace(/\s/g, '');
+    const classAndSpec = player.specialization.split(" "); //of form: "Spec Class". eg: "Havoc Demon Hunter"
+
+    let spec = classAndSpec[0];
+    let clzz = classAndSpec.slice(1).join("");
+    if (classAndSpec[0].toLowerCase() == "beast") { //hack, only spec in game with 2 words
+        spec += classAndSpec[1];
+        clzz = classAndSpec.slice(2).join("");
+    }
+    const playerClass = capitalize(clzz);
+    const playerSpec = capitalize(spec);
+
+
     const base = `\`\`\`( Pawn: v1: "${player.name} - ${playerSpec} ${playerClass}": Class= ${playerClass},
     Spec=${playerSpec}, `;
     let factors = "";
     const pawnKeys = Object.keys(scaleFactors).filter(key => scaleFactors[key] > 0);
+    let nrStats = pawnKeys.length;
     for (let i = 0; i < pawnKeys.length; i++) {
         const key = pawnKeys[i];
         const pawnKey = pawnStats[key];
         const factor = Math.round(scaleFactors[key] * 100) / 100;
-        if (factor <= 0) continue;
-        factors += `${pawnKey}=${factor}${i < pawnKeys.length - 1 ? ", " : " )```"}`
+        //skip 0 factors and unrecognized stats
+        if (factor <= 0 || !pawnKey) {
+            console.log("Unrecognized stat" + key);
+            nrStats--;
+            //cleanup if unrecognized is last
+            if(i === pawnKeys.length - 1) {
+                factors = factors.substring(0,factors.length-2);
+                factors += " )```";
+            }
+            continue;
+        }
+        factors += `${pawnKey}=${factor}${i < nrStats ? ", " : " )```"}`
     }
 
     return base + factors;
@@ -223,10 +252,10 @@ function sendSimRequest(json, doneCB) {
 }
 
 
-function startPoll(info, statusMsg) {
+function startPoll(info, status) {
 
     return new Promise((resolve, reject) => {
-        pollStatus(info, statusMsg).then(body => {
+        pollStatus(info, status).then(body => {
             console.log("Result: " + body);
             requestReportHTML(info).then((data) => {
                 const htmlReportURL = data.url;
@@ -239,13 +268,15 @@ function startPoll(info, statusMsg) {
     })
 }
 
-function pollStatus(info) {
+function pollStatus(info, status) {
     const maxPolling = 1000 * 60 * 5; //5min
     const start = new Date();
     let orgStatusMsgContent;
     return new Promise((resolve, reject) => {
         (function poll() {
             requestStatus(info).then((data) => {
+                status.queue = data.queue;
+                status.progress = data.job.progress;
                 if (data.job.state === "complete") {
                     console.log("Complete, stop polling.");
                     resolve(data);
@@ -255,28 +286,18 @@ function pollStatus(info) {
                 } else {
                     console.log(data.log);
                     console.log(data.queue);
-                    if(gl_statusMsg) {
-                        if(!orgStatusMsgContent && gl_statusMsg.content) {
-                            orgStatusMsgContent = gl_statusMsg.content;
+                    if (status.msg) {
+                        if (!orgStatusMsgContent && status.msg.content) {
+                            orgStatusMsgContent = status.msg.content;
                         }
-                        console.log("log length " + data.log.length);
-                        const lastLogMsg = data.log[data.log.length-1];
-                        const {position, total } = data.queue;
+                        const lastLogMsg = data.log[data.log.length - 1];
+                        const {position, total} = data.queue;
                         const statusStr = `\nIn queue: (${position}/${total})`;
-                        let simProgressMsg = "";
-                        console.log(lastLogMsg)
-                        if(lastLogMsg && lastLogMsg.startsWith("Generating")) {
-                            simProgressMsg = "In progress:";
-                            const log = lastLogMsg.split(" ");
-                            const progress = log[5];
-                            console.log(progress);
-                            const progressVals = progress.split("/");
-                            console.log(progressVals);
-                            const simProgressPercent = (parseInt(progressVals[0]) / parseInt(progressVals[1])) * 100;
-                            console.log("Percent: " + simProgressPercent)
-                            simProgressMsg = `${simProgressMsg} ${simProgressPercent} %`;
-                        }
-                        gl_statusMsg.edit(orgStatusMsgContent + statusStr + "\n" + simProgressMsg);
+                        const progress = data.job.progress;
+                        let simProgressMsg = "Progress: " + progress + " %";
+                        console.log(progress)
+
+                        status.msg.edit(orgStatusMsgContent + statusStr + "\n" + simProgressMsg);
                     }
                     setTimeout(poll, 1000);
                 }
@@ -332,4 +353,120 @@ function requestReportJSON(info, cb) {
             resolve({url, body: res})
         });
     })
+}
+
+const STRINGS = {
+    SIM_STARTED: (name) => `your simulation for ${name} has started, you will be notified when it's done!`,
+    GENERIC_ERROR: (err) => `An error occured: ${err}`,
+    LOG_SIM_STARTED: (armoryMeta) => `Started simulation: ${armoryMeta} `
+}
+
+class Sim {
+    constructor(msg, armoryMeta, simOpts) {
+
+        this.msg = msg;
+        this.status = {msg: null, progress: 0, log: [], queue: {}}
+        //  this.params = params;
+        this.armory = {}
+        this.simOpts = simOpts || {type: "quick", profile: "", iterations: 10000}
+
+        this.armoryMeta = armoryMeta;
+
+        this.simStartedJson = null;
+        this.simResultJson = null;
+
+    }
+
+    runSim() {
+        console.log(STRINGS['LOG_SIM_STARTED'](this.armoryMeta));
+        if (this.simOpts.type === "advanced") {
+            this._runAdvancedSim();
+        } else {
+            this._runArmorySim();
+        }
+
+    }
+
+    _runAdvancedSim() {
+        console.log("Started advanced sim")
+        const msg = this.msg;
+        if(msg.channel.name !== "sims" && msg.content.length > 30) { //truncate message
+            this.msg.delete();
+        }
+        if (!this.simOpts.profile) {
+            this.msg.reply("Failed to start advanced simulation. No profile-input given.")
+            return;
+        }
+        const json = createSimJSON(null, this.armoryMeta, this.simOpts);
+        sendSimRequest(json).then(body => {
+            console.log(body)
+            msg.reply(`your advanced simulation has started, you will be notified when it's done!`)
+                .then(msg => this.status.msg = msg);
+            startPoll(body, this.status).then(data => {
+                console.log(data);
+                simCompleted(msg, data.htmlReportURL, data.body.body, json, body);
+            }).catch(err => {
+                console.log(err);
+                msg.reply(`An error occurred during your simulation of ${json.baseActorName}:\n${err}`)
+            })
+        }).catch(err => {
+            console.log(err);
+            let errMsg = err;
+            if (err.body && err.body.error)
+                errMsg = err.body.error;
+            msg.reply(`Failed to start advanced simulation.\n${err.body.error}`);
+        })
+    }
+
+    _runArmorySim() {
+        const msg = this.msg;
+        this.getCharArmory().then(data => {
+            this.armory = data;
+            const json = createSimJSON(data, this.armoryMeta, this.simOpts);
+            sendSimRequest(json).then(body => {
+                msg.reply(`your simulation for ${json.baseActorName} has started, you will be notified when it's done!`)
+                    .then(msg => this.status.msg = msg);
+                startPoll(body, this.status).then(data => {
+                    console.log(data);
+                    simCompleted(msg, data.htmlReportURL, data.body.body, json, body);
+                }).catch(err => {
+                    console.log(err);
+                    msg.reply(`An error occurred during your simulation of ${json.baseActorName}:\n${err}`)
+                });
+            }).catch(err => {
+                console.log(err);
+                msg.reply(`Failed to start simulation for ${json.baseActorName}.\n${err}`);
+            })
+        }).catch(err => {
+            msg.reply(`Failed to start simulation for ${this.armoryMeta.name}.\nERROR: ${err.type}: ${err.detail}`);
+        })
+
+    }
+
+    getCharArmory() {
+        return new Promise((resolve, reject) => {
+            armoryAPI.character({"name": this.armoryMeta.name, "fields": ["items", "talents"]}, (err, data) => {
+                console.log(err);
+                console.log(data);
+                if (err || data.code !== 200) {
+                    reject(data);
+                }
+                resolve(data);
+            })
+        })
+    }
+
+    sendSimRequest() {
+
+    }
+
+    _updateStatusMsg() {
+        const msg = this.status.msg;
+        if (!msg) {
+            return;
+        }
+        const {position, total} = this.status.queue;
+        const statusStr = `\nIn queue: (${position}/${total})\nProgress: ${this.status.progress} %`;
+        msg.edit(STRINGS['SIM_STARTED'](this.armoryMeta.name) + statusStr);
+    }
 }
