@@ -24,11 +24,12 @@ module.exports = (msg, guild, command) => {
     const server = args[1] || "";
     const region = args[2] || "EU";
 
-    let simOpts = {type: "quick", profile: "", iterations: 10000}
+    let simOpts = {profile: "", iterations: 10000}
     const specialParams = params.filter(elem => !!acceptedParams[elem])
+    let type = null;
     specialParams.forEach(param => {
-        if (simTypes[param]) {  // istype
-            simOpts.type = simTypes[param];
+        if (simTypes[param] && !type) {  // istype
+            type = simTypes[param];
         }
         const paramValue = command[param];
         if (paramValue) {
@@ -36,6 +37,7 @@ module.exports = (msg, guild, command) => {
         }
 
     })
+    Object.assign(simOpts, {type: type || "quick"})
     console.log(simOpts);
     armoryAPI.set_options({
         "region": region,
@@ -252,16 +254,24 @@ function sendSimRequest(json, doneCB) {
 
 
 function startPoll(info, status) {
-
+    const simErrorUrl = `https://www.raidbots.com/reports/${info.simId}/output.txt`
     return new Promise((resolve, reject) => {
         pollStatus(info, status).then(body => {
             console.log("Result: " + body);
             requestReportHTML(info).then((data) => {
                 const htmlReportURL = data.url;
-                requestReportJSON(info).then(data => resolve({htmlReportURL, body: data}))
-            })
+                requestReportJSON(info).then(data => {
+                    //error during sim, reject this
+                    if (data.body.error) {
+                        request.get({url: simErrorUrl}, (err, resp, body) =>
+                            reject(body))
+                    } else {
+                        resolve({htmlReportURL, body: data})
+                    }
+                }).catch(err => reject(err));
+            }).catch(err => reject(err));
         }).catch(err => {
-            console.log(err);
+            console.log("poll err " + err);
             reject(err)
         });
     })
@@ -395,6 +405,9 @@ class Sim {
         if (!this.simOpts.profile) {
             this.msg.reply("Failed to start advanced simulation. No profile-input given.")
             return;
+        }
+        if (this.simOpts.scale) {
+            this.simOpts.profile += `\ncalculate_scale_factors="1"`;
         }
         const json = createSimJSON(null, this.armoryMeta, this.simOpts);
         sendSimRequest(json).then(body => {

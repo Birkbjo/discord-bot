@@ -1,6 +1,6 @@
 module.exports = (msg, guild, command) => {
 
-    const roomName = command.args[0];
+    const roomName = command._[0];
     const answerChannel = guild.channels.find(chan => chan.id === msg.channel.id);
 
     if (roomName) {
