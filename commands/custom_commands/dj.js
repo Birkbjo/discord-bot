@@ -8,10 +8,11 @@ const meta_player = {
     dispatcher : null,
     voiceConnection : null,
     queue : [],
-    volume: 0.5,
+    volume: 0.2,
     channel: null,
     inDev : false,
-    lastMsg: null
+    lastMsg: null,
+    lastDjMsg: null
 };
 
 function pauseAndPlayDispatch() {
@@ -36,11 +37,11 @@ function changeVolume() {
     }
 }
 
-function addSong(ytId, streamOptions) {
+function addSong(ytId, streamOptions, songName) {
     if(meta_player.queue.length > 0){
-        meta_player.queue.push({id: ytId, options: streamOptions});
+        meta_player.queue.push({id: ytId, options: streamOptions, songName: songName});
     }else{
-        meta_player.queue.push({id: ytId, options: streamOptions});
+        meta_player.queue.push({id: ytId, options: streamOptions, songName: songName});
         playYT();
     }
 }
@@ -73,7 +74,8 @@ function stopDj() {
     if(meta_player.channel) meta_player.channel.leave();
     meta_player.channel = null;
     meta_player.voiceConnection = null;
-    if(meta_player.lastMsg) meta_player.lastMsg.clearReactions().catch(error => console.log(error));
+    if(meta_player.lastMsg) meta_player.lastMsg.clearReactions().then(meta_player.lastMsg = null);
+    if(meta_player.lastDjMsg) meta_player.lastDjMsg.delete().then(meta_player.lastDjMsg = null);
     meta_player.lastMsg = null;
 }
 
@@ -104,6 +106,31 @@ function emoteButtons(msg) {
         }
         r.remove(msg.author.id);
     });
+}
+
+function youtubeIdGetter(error, result, streamOptions) {
+    if (error) {
+        console.log(error);
+        if(meta_player.dispatcher){
+            meta_player.dispatcher.end();
+        }
+
+    }else if(result.items.length > 0){
+        let ytId;
+        let songName = null;
+        result.items.every(elem => {
+            const kind = typeof elem.id === "string" ? elem.kind : elem.id.kind;
+            if(kind === 'youtube#video'){
+                ytId = typeof elem.id === "string" ? elem.id : elem.id.videoId;
+                songName = elem.snippet.title;
+                return false;
+            }
+            return true;
+        });
+        if(ytId){
+            addSong(ytId, streamOptions, songName);
+        }
+    }
 }
 
 module.exports = (msg, guild, command) => {
@@ -164,30 +191,13 @@ module.exports = (msg, guild, command) => {
         nextTrack();
     }else if(isYoutubeID){
         emoteButtons(msg);
-        addSong(vidID, streamOptions);
+        youTube.getById(vidID, (error, result) => {
+            youtubeIdGetter(error, result, streamOptions);
+        });
     }else if(isYotubeSearch){
         emoteButtons(msg);
         youTube.search(vidID, 10, (error, result) => {
-            if (error) {
-                console.log(error);
-                if(meta_player.dispatcher){
-                    meta_player.dispatcher.end();
-                }
-
-            }else if(result.items.length > 0){
-                let ytId;
-                result.items.every(elem => {
-                    if(elem.id.kind === 'youtube#video'){
-                        ytId = elem.id.videoId;
-                        return false;
-                    }
-                    return true;
-                });
-                if(!ytId){
-                    return;
-                }
-                addSong(ytId, streamOptions);
-            }
+            youtubeIdGetter(error, result, streamOptions);
         });
     }
 };
@@ -195,6 +205,7 @@ module.exports = (msg, guild, command) => {
 function connectionPlay() {
     const vidID = meta_player.queue[0].id;
     const streamOptions = meta_player.queue[0].options;
+    const songName = meta_player.queue[0].songName;
     const connection = meta_player.voiceConnection;
 
     const ytOptions = {
@@ -211,6 +222,14 @@ function connectionPlay() {
     console.log("Youtube stream ready");
     meta_player.dispatcher.on("start", () =>{
         console.log("Playing YT stream");
+        if(meta_player.lastMsg){
+            const djString = `Now playing: "${songName}"`;
+            meta_player.lastMsg.channel.send(djString)
+                .then(msg => {
+                    if(meta_player.lastDjMsg) meta_player.lastDjMsg.delete();
+                    meta_player.lastDjMsg = msg;
+                });
+        }
         if(streamOptions.playtime && streamOptions.playtime > 0 ){
             console.log("Setting timeout for end: ", streamOptions.playtime);
             setTimeout(() => {
