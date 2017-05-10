@@ -3,19 +3,19 @@ const config = require("../../config");
 const request = require("request");
 
 
+//Maps parameter names to names used in "API"-requests
 const simTypes = {
     scale: 'stats',
     quick: 'quick',
     profile: 'advanced',
 }
 
-//Maps parameter names to names used in "API"-requests
-const acceptedParams = {
-    scale: 'stats',
-    quick: 'quick',
-    profile: 'advanced',
+
+const valueParams = {
     iterations: 'iterations',
 };
+
+const acceptedParams = Object.assign({}, simTypes, valueParams);
 
 module.exports = (msg, guild, command) => {
     const args = command._;
@@ -31,7 +31,7 @@ module.exports = (msg, guild, command) => {
             simOpts.type = simTypes[param];
         }
         const paramValue = command[param];
-        if (paramValue) { //need more specific check here, as we add simOpts for e.g "scale=true"
+        if (paramValue) {
             simOpts[param] = paramValue;
         }
 
@@ -167,13 +167,13 @@ function generatePawnString(simStartedJson, resultSimData) {
             console.log("Unrecognized stat" + key);
             nrStats--;
             //cleanup if unrecognized is last
-            if(i === pawnKeys.length - 1) {
-                factors = factors.substring(0,factors.length-2);
+            if (i === pawnKeys.length - 1) {
+                factors = factors.substring(0, factors.length - 2);
                 factors += " )```";
             }
             continue;
         }
-        factors += `${pawnKey}=${factor}${i < nrStats ? ", " : " )```"}`
+        factors += `${pawnKey}=${factor}${i < nrStats - 1 ? ", " : " )```"}`
     }
 
     return base + factors;
@@ -222,7 +222,6 @@ function createSimJSON(arm, armObj, opts) {
         talentsets: [],
         text: "",
         type: opts.type,
-
     };
     if (arm) {
         json.character = arm;
@@ -236,7 +235,7 @@ function sendSimRequest(json, doneCB) {
     const j = request.jar();
     const cookie = request.cookie("raidsid=s%3ALQVBpim-51GV8hz0IkVCUpl4R1eD4ArZ.eaIsjGdulzLkNncYG53m8Pr9BDw92ZiMMhjLpD9lbrQ")
     j.setCookie(cookie, url);
-
+    console.log("sending payload")
     return new Promise((resolve, reject) => {
         request.post({url, jar: j, body: json, json: true}, (err, resp, body) => {
             if (err || resp.statusCode != 200) {
@@ -390,7 +389,7 @@ class Sim {
     _runAdvancedSim() {
         console.log("Started advanced sim")
         const msg = this.msg;
-        if(msg.channel.name !== "sims" && msg.content.length > 30) { //truncate message
+        if (msg.channel.name !== "sims" && msg.content.length > 30) { //truncate message
             this.msg.delete();
         }
         if (!this.simOpts.profile) {
@@ -447,8 +446,8 @@ class Sim {
         return new Promise((resolve, reject) => {
             armoryAPI.character({"name": this.armoryMeta.name, "fields": ["items", "talents"]}, (err, data) => {
                 console.log(err);
-                console.log(data);
-                if (err || data.code !== 200) {
+
+                if (err || data.code && data.code !== 200) {
                     reject(data);
                 }
                 resolve(data);
