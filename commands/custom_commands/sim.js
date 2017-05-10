@@ -158,7 +158,7 @@ function generatePawnString(simStartedJson, resultSimData) {
     const base = `\`\`\`( Pawn: v1: "${player.name} - ${playerSpec} ${playerClass}": Class= ${playerClass},
     Spec=${playerSpec}, `;
     let factors = "";
-    const pawnKeys = Object.keys(scaleFactors).filter(key => scaleFactors[key] > 0);
+    const pawnKeys = Object.keys(scaleFactors).filter(key => scaleFactors[key] > 0 && pawnStats[key]);
     let nrStats = pawnKeys.length;
     for (let i = 0; i < pawnKeys.length; i++) {
         const key = pawnKeys[i];

@@ -1,8 +1,11 @@
 const config = require('./config.js');
 const commands = require('./commands/commands.js');
 const Discord = require("discord.js");
+const fs = require("fs");
 const strftime = require('strftime');
 const argParser = require('minimist');
+const webshot = require('webshot');
+
 const client = new Discord.Client();
 const GUILD_NAME = "The Art of Dying";
 
@@ -20,6 +23,7 @@ const alias = {
 client.on('ready', () => {
     console.log(`Logged in as ${client.user.username}!`);
     main_guild = client.guilds.find('name', GUILD_NAME);
+
 });
 
 client.on('message', msg => {
@@ -42,6 +46,7 @@ client.on('message', msg => {
 client.login(config.token).catch(err =>
     console.log("Failed to log in: " + err)
 );
+
 
 
 function prettyLogMessage(msg) {
