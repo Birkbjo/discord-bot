@@ -72,8 +72,10 @@ function prettyLogMessage(msg) {
 }
 
 function parseCommand(input) {
+    //remove quotes
     const args = argParser(input.split(/ +(?=(?:(?:[^"]*"){2})*[^"]*$)/g));
     args.cmd = args._.shift();
+    //split on space
     if(args._.length > 0) args._ = args._.map(elem => elem.replace(/^"(.*)"$/, '$1'));
     return args;
 
