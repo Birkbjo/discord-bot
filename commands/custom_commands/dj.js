@@ -35,7 +35,7 @@ function nextTrack() {
 
 function changeVolume() {
     const volume = meta_player.volume;
-    if(volume && volume <= 1 && volume >= 0 && meta_player.dispatcher){
+    if(volume && volume <= MAX_VOLUME && volume >= 0 && meta_player.dispatcher){
         console.log("Setting volume", volume);
         meta_player.dispatcher.setVolume(volume);
     }
@@ -88,9 +88,9 @@ function emoteButtons(msg) {
     meta_player.lastMsg = msg;
     const buttons = {
         "⏯" : pauseAndPlayDispatch,
-        "⏹": msg => {msg.clearReactions().catch(error => console.log(error));stopDj()},
-        "🔉": () => {meta_player.volume -= 0.1; changeVolume()},
-        "🔊": () => {meta_player.volume += 0.1; changeVolume()},
+        //"⏹": msg => {msg.clearReactions().catch(error => console.log(error));stopDj()},
+        "🔉": () => {meta_player.volume -= VOLUME_INCREMENT; changeVolume()},
+        "🔊": () => {meta_player.volume += VOLUME_INCREMENT; changeVolume()},
         "⏭": nextTrack
     };
 
@@ -172,7 +172,7 @@ module.exports = (msg, guild, command) => {
 
     let skip = command.skip;
     let playtime = command.playtime;
-    let vol = command.volume ? ((command.volume <= 1 || command.volume > 0) ? command.volume : 0.5) : meta_player.volume;
+    let vol = command.volume ? ((command.volume <= MAX_VOLUME || command.volume > 0) ? command.volume : MAX_VOLUME) : meta_player.volume;
 
     assignArgs("volume", vol);
 
