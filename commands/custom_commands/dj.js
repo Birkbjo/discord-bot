@@ -97,14 +97,21 @@ function emoteButtons(msg) {
     });
 
     const collector = msg.createReactionCollector(
-        (reaction, user) => !user.bot && validButtons.includes(reaction.emoji.name)
+        (reaction, user) => {
+            return !user.bot && validButtons.includes(reaction.emoji.name)
+        }
     );
 
     collector.on('collect', r => {
         if(buttons[r.emoji.name]){
             buttons[r.emoji.name](msg);
         }
-        r.remove(msg.author.id);
+        r.users.every(elem => {
+           if(!elem.bot){
+               r.remove(elem.id);
+           }
+           return true;
+        });
     });
 }
 
