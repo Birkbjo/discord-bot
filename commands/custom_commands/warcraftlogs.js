@@ -2,7 +2,8 @@ const wlogs = require("weasel.js");
 const config = require('../../config.js');
 const fs = require("fs");
 const Pageres = require("pageres");
-var strmToArray = require('stream-to-array')
+const strmToArray = require('stream-to-array');
+
 wlogs.setApiKey(config.wclApiKey);
 
 
