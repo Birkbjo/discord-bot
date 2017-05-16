@@ -223,6 +223,7 @@ function createSimJSON(arm, armObj, opts) {
         simcVersion: "nightly",
         talentsets: [],
         text: "",
+        enemyType:"FluffyPillow",
         type: opts.type,
     };
     if (arm) {
