@@ -3,6 +3,7 @@ const config = require('../../config.js');
 const fs = require("fs");
 const Pageres = require("pageres");
 const strmToArray = require('stream-to-array');
+const _ = require("lodash");
 
 wlogs.setApiKey(config.wclApiKey);
 
@@ -94,6 +95,8 @@ class WCLlogs {
             bossIncludeWipes: false,
 
         }
+
+        opts = _.omitBy(opts,_.isNil);
         Object.assign(this, defaults, opts || {});
     }
 
@@ -150,7 +153,7 @@ class WCLlogs {
 
     checkAndSendSS(url, opts) {
         const {msg, guildName, realm, region, wclType} = this;
-        console.log("SS")
+        console.log(this.includeSS)
         if (this.includeSS) {
             captureScreenShot(url, opts || {selector: '.dataTables_wrapper table'})
                 .then(streams => streamsToBuffers(streams))
