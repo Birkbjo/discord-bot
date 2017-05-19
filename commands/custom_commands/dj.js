@@ -29,6 +29,7 @@ function pauseAndPlayDispatch() {
 
 function nextTrack() {
     if(meta_player.queue.length > 1) {
+        if(meta_player.dispatcher && meta_player.dispatcher.paused) meta_player.dispatcher.resume();
         if(meta_player.dispatcher) meta_player.dispatcher.end("next");
     }
 }
@@ -231,7 +232,7 @@ function connectionPlay() {
     const stream = ytdl(`https://www.youtube.com/watch?v=${vidID}`, ytOptions);
     meta_player.dispatcher = connection.playStream(stream, streamOptions);
     console.log("Youtube stream ready");
-    meta_player.dispatcher.on("speaking", speak => {
+    meta_player.dispatcher.on("start", () => {
         console.log("Playing YT stream");
         if(meta_player.lastMsg){
             const djString = `Now playing: "${songName}"`;
@@ -247,15 +248,6 @@ function connectionPlay() {
                 if(meta_player.dispatcher) meta_player.dispatcher.end("next");
             }, streamOptions.playtime * 1000)
         }
-    });
-    meta_player.dispatcher.on("start", () => {
-        console.log("Loading YT stream");
-        const djString = `Now loading: "${songName}"`;
-        meta_player.lastMsg.channel.send(djString)
-            .then(msg => {
-                if(meta_player.lastDjMsg) meta_player.lastDjMsg.delete();
-                meta_player.lastDjMsg = msg;
-            });
     });
 
     meta_player.dispatcher.on('end', reason => {
