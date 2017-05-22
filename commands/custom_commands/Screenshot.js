@@ -1,16 +1,18 @@
 const Pageres = require("pageres");
-module.exports = class ScreenshotCommand {
+module.exports = class ScreenshotCommand extends Command {
 
     static acceptedCommands = {
 
     }
 
     constructor(msg, command) {
+        this.guild = msg.guild;
+        this.msg = msg;
 
     }
 
 
-    run() {
+    execute() {
 
         function captureScreenShot(wclURL, opts) {
             const pageres = new Pageres({selector: '.dataTables_wrapper table'})

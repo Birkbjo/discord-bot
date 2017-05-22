@@ -22,8 +22,9 @@ class Command {
             msg.reply(`${this.constructor.name} in devMode: ${this.dev}`);
         }
         const curCommandParams = generalParams.filter(elem => !this.acceptedParams.contains(elem));
-
-        this.execute(msg, curCommandParams);
+        this.msg = msg;
+        this.rawCommands = commands;
+        this.execute(msg);
     }
 
     execute() {
