@@ -262,6 +262,7 @@ function sendSimRequest(json, doneCB) {
     const j = request.jar();
     const cookieStr = config.rbCookie || gl_rbCookie;
     const cookie = request.cookie(cookieStr);
+
     j.setCookie(cookie, url);
     console.log("sending payload")
     return new Promise((resolve, reject) => {
