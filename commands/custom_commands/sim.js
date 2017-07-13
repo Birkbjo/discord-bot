@@ -13,13 +13,20 @@ const simTypes = {
 
 const valueParams = {
     iterations: 'iterations',
+
 };
 
-const acceptedParams = Object.assign({}, simTypes, valueParams);
+const otherParams = {
+    setCookie: 'setCookie',
+}
+
+const acceptedParams = Object.assign({}, simTypes, valueParams, otherParams);
 
 module.exports = (msg, guild, command) => {
     const args = command._;
+
     const params = Object.keys(command).filter(elem => !(elem === '_' || elem === 'cmd'));
+
     const charName = args[0] || "";
     const server = args[1] || "";
     const region = args[2] || "EU";
@@ -27,16 +34,28 @@ module.exports = (msg, guild, command) => {
     let simOpts = {profile: "", iterations: 10000}
     const specialParams = params.filter(elem => !!acceptedParams[elem])
     let type = null;
+    let cookieSet = null;
     specialParams.forEach(param => {
         if (simTypes[param] && !type) {  // istype
             type = simTypes[param];
         }
         const paramValue = command[param];
+
+        if(paramValue && param == 'setCookie') {
+            cookieSet = paramValue;
+            return;
+        }
         if (paramValue) {
             simOpts[param] = paramValue;
         }
 
     })
+
+    if(cookieSet) {
+        setCookie(cookieSet);
+        msg.reply("Cookie set!")
+        return;
+    }
     Object.assign(simOpts, {type: type || "quick"})
     console.log(simOpts);
     armoryAPI.set_options({
@@ -50,9 +69,13 @@ module.exports = (msg, guild, command) => {
     //startSim({name: charName, realm: server, region}, msg, simOpts)
 };
 
+function setCookie(cookie) {
+    gl_rbCookie = cookie;
+}
 
 //startSim({name: "Padni", realm: "bladefist", region: "eu"})
 let gl_statusMsg = null;
+let gl_rbCookie = null;
 function startSim(armObj, msg, opts) {
     const {region, realm} = armObj;
     armoryAPI.set_options({
@@ -236,7 +259,8 @@ function createSimJSON(arm, armObj, opts) {
 function sendSimRequest(json, doneCB) {
     const url = "https://www.raidbots.com/sim";
     const j = request.jar();
-    const cookie = request.cookie("raidsid=s%3ALQVBpim-51GV8hz0IkVCUpl4R1eD4ArZ.eaIsjGdulzLkNncYG53m8Pr9BDw92ZiMMhjLpD9lbrQ")
+    const cookieStr = config.rbCookie || gl_rbCookie;
+    const cookie = request.cookie(cookieStr);
     j.setCookie(cookie, url);
     console.log("sending payload")
     return new Promise((resolve, reject) => {
