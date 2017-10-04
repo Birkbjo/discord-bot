@@ -21,6 +21,8 @@ const otherParams = {
 }
 
 const acceptedParams = Object.assign({}, simTypes, valueParams, otherParams);
+let gl_statusMsg = null;
+let gl_rbCookie = config.rbCookie;
 
 module.exports = (msg, guild, command) => {
     const args = command._;
@@ -74,8 +76,7 @@ function setCookie(cookie) {
 }
 
 //startSim({name: "Padni", realm: "bladefist", region: "eu"})
-let gl_statusMsg = null;
-let gl_rbCookie = null;
+
 function startSim(armObj, msg, opts) {
     const {region, realm} = armObj;
     armoryAPI.set_options({
