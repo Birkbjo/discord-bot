@@ -68,7 +68,7 @@ function streamsToBuffers(streams) {
 function buildWCLUrl(reportId, type = "", fight = "") {
     const typeString = type ? `&type=${type}` : "";
     const fightString = fight ? `&fight=${fight}` : "";
-    return `https://www.warcraftlogs.com/reports/${reportId}#view=analytical${typeString}${fightString}`;
+    return `https://www.warcraftlogs.com/reports/${reportId}#view=analytical${fightString}${typeString}`;
 }
 
 
@@ -141,8 +141,9 @@ class WCLlogs {
     sendLatestLogs() {
         const {msg, guildName, realm, region, wclType} = this;
         this.getReports().then(data => {
+            // Should be sorted from the API
             const lastLog = data[data.length - 1];
-            const wclUrl = buildWCLUrl(lastLog.id, wclType);
+            const wclUrl = buildWCLUrl(lastLog.id, wclType, 'last');
             const message = msg.channel.send(`Latest logs for ${guildName}: \n${wclUrl}`);
 
             this.checkAndSendSS(wclUrl);
